@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>活動小工具中心</title>
+<style>
+  :root{ --border:#e5e7eb; --accent:#4f46e5; --bg:#f6f7fb; }
+  *{box-sizing:border-box}
+  html, body { height:100%; }
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Noto Sans TC";background:var(--bg)}
+  .wrap{max-width:880px;margin:24px auto;padding:12px; min-height:100vh;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{
+    border:1px solid var(--border); background:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;
+  }
+  .tab.active{background:var(--accent);color:#fff;border-color:transparent}
+  .panel{display:none}
+  .panel.active{display:block}
+  iframe{
+    width:100%;
+    border:1px solid var(--border);
+    border-radius:16px;
+    background:#fff;
+    /* 至少填滿視窗（扣掉外層 margin/padding 與分頁按鈕高度） */
+    height: calc(100vh - 120px);
+    min-height: calc(100vh - 120px);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab active" data-target="p1">徽章目標與體力試算</button>
+      <button class="tab" data-target="p2">體力回復試算</button>
+    </div>
+
+    <div id="p1" class="panel active">
+      <iframe id="frame1" src="badge_calc.html" title="徽章試算"></iframe>
+    </div>
+
+    <div id="p2" class="panel">
+      <iframe id="frame2" src="stamina_timer.html" title="體力回復"></iframe>
+    </div>
+  </div>
+
+<script>
+  // 分頁切換
+  const tabs=[...document.querySelectorAll('.tab')];
+  const panels=[...document.querySelectorAll('.panel')];
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabs.forEach(b=>b.classList.remove('active'));
+      panels.forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+      autoResize();
+    });
+  });
+
+  // 自動依內容高度調整（不低於視窗高度）
+  function fitFrame(iframe){
+    try{
+      const doc = iframe.contentWindow?.document;
+      if (!doc) return;
+      const h = Math.max(
+        doc.documentElement.scrollHeight,
+        doc.body.scrollHeight,
+        doc.documentElement.offsetHeight,
+        doc.body.offsetHeight
+      );
+      if (h) {
+        const minH = Math.max(window.innerHeight - 120, 0);
+        iframe.style.height = Math.max(h+20, minH) + 'px';
+      }
+    }catch(e){
+      // 不同源就保持 CSS 的 min-height
+    }
+  }
+  function autoResize(){
+    fitFrame(document.getElementById('frame1'));
+    fitFrame(document.getElementById('frame2'));
+  }
+
+  window.addEventListener('load', ()=>{
+    autoResize();
+    let count = 0;
+    const t = setInterval(()=>{ autoResize(); if(++count>10) clearInterval(t); }, 300);
+  });
+
+  // 視窗改變大小時也維持至少滿版
+  window.addEventListener('resize', autoResize);
+</script>
+</body>
+</html>

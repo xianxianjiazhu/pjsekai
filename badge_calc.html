@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>徽章／體力試算</title>
+<style>
+  :root{
+    --yellow:#fff39b; --orange:#ffd9a6; --bg:#f6f7fb; --card:#ffffff;
+    --border:#e5e7eb; --accent:#4f46e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans TC";
+       background:var(--bg);color:#111827;line-height:1.5;}
+  .wrap{max-width:720px;margin:32px auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.06);}
+  .header{padding:18px 20px;font-weight:700;font-size:18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#fafafa,#fff);}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr .8fr;gap:10px;padding:16px 20px;}
+  .row{display:contents}
+  .label{align-self:center;color:#374151}
+  .field,.calc{display:flex;align-items:center;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+  input[type="text"]{width:100%;border:0;padding:10px 12px;font-size:16px;background:transparent;outline:none;}
+  .unit{padding:0 10px;font-size:14px;color:#6b7280;white-space:nowrap;border-left:1px dashed #d1d5db;background:rgba(0,0,0,0.02)}
+  .field{background:var(--yellow)} .calc{background:var(--orange)}
+  .hint{padding:0 20px 18px;color:#6b7280;font-size:12px;}
+  .footer{padding:12px 20px 20px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border)}
+  button{border:1px solid var(--border);background:#fff;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;}
+  button.primary{background:var(--accent);color:#fff;border-color:transparent}
+  .kpi{padding:12px 20px 8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .pill{background:#f3f4f6;border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-size:13px;color:#374151;}
+  /* 進度條（避免超出卡片寬度） */
+  .progress-wrap{width:calc(100% - 40px);margin:6px 20px 16px;height:16px;background:#e5e7eb;border-radius:8px;overflow:hidden;}
+  .progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#2563eb);transition:width .3s ease;}
+  .progress-text{text-align:right;padding:0 20px 12px;color:#374151;font-size:12px;}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}.unit{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header">徽章目標與體力試算</div>
+
+    <!-- 輸入（黃底） -->
+    <div class="grid">
+      <div class="row">
+        <div class="label">需要多少徽章</div>
+        <div class="field"><input id="need" type="text" inputmode="numeric" placeholder="例如 30000" /><div class="unit">枚</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">現在有多少徽章</div>
+        <div class="field"><input id="have" type="text" inputmode="numeric" placeholder="例如 1000" /><div class="unit">枚</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">每首歌約多少徽章</div>
+        <div class="field"><input id="perSong" type="text" inputmode="numeric" placeholder="例如 2800" /><div class="unit">枚／首</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">每首歌的體力消耗</div>
+        <div class="field"><input id="stamPerSong" type="text" inputmode="numeric" placeholder="例如 5" /><div class="unit">體力／首</div></div>
+        <div></div>
+      </div>
+    </div>
+
+    <div class="hint">公式：尚需徽章 = max(需要 − 現在, 0)；還需要打首歌 = ⌈尚需徽章 ÷ 每首歌徽章⌉；需要體力 = 還需要打首歌 × 每首歌體力。</div>
+
+    <!-- 結果（橘底） -->
+    <div class="grid">
+      <div class="row">
+        <div class="label">還需要打</div>
+        <div class="calc"><input id="songsNeed" type="text" value="—" readonly /><div class="unit">首歌</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">需要</div>
+        <div class="calc"><input id="staminaNeed" type="text" value="—" readonly /><div class="unit">體力</div></div>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- KPI + 進度條 -->
+    <div class="kpi">
+      <div class="pill">尚需徽章：<span id="remain">0</span> 枚</div>
+      <div class="pill">進度：<span id="progressPct">0%</span></div>
+    </div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-text">完成度：<span id="progressText">0%</span></div>
+
+    <div class="footer">
+      <button class="primary" id="fillDemo">填入示例數據</button>
+      <button id="resetAll">清空</button>
+      <button id="save">儲存輸入</button>
+      <span style="margin-left:auto;color:#6b7280;font-size:12px">資料僅存於本機瀏覽器</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const qs=(s)=>document.querySelector(s);
+  const fmt=(n)=>isFinite(n)?Number(n).toLocaleString('zh-Hant-TW'):'—';
+  const toNum=(s)=>{ if(!s) return NaN; const c=String(s).replace(/[,\s]/g,''); return c===''?NaN:Math.floor(Number(c)); };
+
+  const $need=qs('#need'),$have=qs('#have'),$perSong=qs('#perSong'),$stamPerSong=qs('#stamPerSong');
+  const $songsNeed=qs('#songsNeed'),$staminaNeed=qs('#staminaNeed');
+  const $remain=qs('#remain'),$progressPct=qs('#progressPct'),$progressText=qs('#progressText'),$progressBar=qs('#progressBar');
+
+  function calculate(){
+    const need=toNum($need.value),
+          have=toNum($have.value),
+          perSong=toNum($perSong.value),
+          stamPerSong=toNum($stamPerSong.value);
+
+    let remain=NaN, songs=NaN, stamina=NaN, percent=0;
+
+    if (isFinite(need) && need>=0 && isFinite(have) && have>=0){
+      remain=Math.max(need-have,0);
+      percent=need>0 ? Math.min(have/need,1)*100 : 0;
+    }
+    if (isFinite(remain) && isFinite(perSong) && perSong>0){
+      songs=Math.ceil(remain/perSong); // 無條件進位
+    }
+    if (isFinite(songs) && isFinite(stamPerSong) && stamPerSong>=0){
+      stamina=songs*stamPerSong;
+    }
+
+    $remain.textContent=fmt(remain);
+    $songsNeed.value=isFinite(songs)?fmt(songs):'—';
+    $staminaNeed.value=isFinite(stamina)?fmt(stamina):'—';
+    $progressPct.textContent=percent.toFixed(2)+'%';
+    $progressText.textContent=percent.toFixed(2)+'%';
+    $progressBar.style.width=percent.toFixed(2)+'%';
+  }
+
+  function prettifyOnBlur(e){ const n=toNum(e.target.value); if (isFinite(n)) e.target.value=fmt(n); }
+  [$need,$have,$perSong,$stamPerSong].forEach($el=>{
+    $el.addEventListener('input',calculate);
+    $el.addEventListener('blur',prettifyOnBlur);
+  });
+
+  // 範例按鈕
+  qs('#fillDemo').addEventListener('click',()=>{
+    $need.value=fmt(30000);
+    $have.value=fmt(1894);
+    $perSong.value=fmt(2800);
+    $stamPerSong.value=fmt(5);
+    calculate();
+  });
+
+  qs('#resetAll').addEventListener('click',()=>{
+    [$need,$have,$perSong,$stamPerSong].forEach($=>$.value='');
+    calculate();
+    localStorage.removeItem('badgeCalc_basic');
+  });
+
+  qs('#save').addEventListener('click',()=>{
+    const d={need:$need.value,have:$have.value,perSong:$perSong.value,stamPerSong:$stamPerSong.value};
+    localStorage.setItem('badgeCalc_basic', JSON.stringify(d));
+    alert('已儲存輸入到本機瀏覽器。');
+  });
+
+  // 還原本機儲存
+  (function restore(){
+    const raw=localStorage.getItem('badgeCalc_basic'); if(!raw) return;
+    try{
+      const d=JSON.parse(raw);
+      if(d.need) $need.value=d.need;
+      if(d.have) $have.value=d.have;
+      if(d.perSong) $perSong.value=d.perSong;
+      if(d.stamPerSong) $stamPerSong.value=d.stamPerSong;
+    }catch(e){}
+  })();
+
+  calculate();
+</script>
+</body>
+</html>

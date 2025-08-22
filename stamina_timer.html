@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>體力回復試算</title>
+<style>
+  :root{ --yellow:#fff39b; --orange:#ffd9a6; --bg:#f6f7fb; --card:#fff;
+         --border:#e5e7eb; --accent:#4f46e5; }
+  *{box-sizing:border-box}
+  body{ margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans TC";
+        background:var(--bg); color:#111827; line-height:1.5; }
+  .wrap{ max-width:720px; margin:32px auto; padding:16px }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:16px;
+         box-shadow:0 6px 20px rgba(0,0,0,.06); overflow:hidden; }
+  .header{ padding:18px 20px; font-weight:700; font-size:18px;
+           border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fafafa,#fff); }
+  .grid{ display:grid; grid-template-columns:1.4fr 1fr .8fr; gap:10px; padding:16px 20px; }
+  .row{ display:contents }
+  .label{ align-self:center; color:#374151 }
+  .field,.calc{ display:flex; align-items:center; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  input[type="text"]{ width:100%; border:0; padding:10px 12px; font-size:16px; background:transparent; outline:none; }
+  .unit{ padding:0 10px; font-size:14px; color:#6b7280; white-space:nowrap; border-left:1px dashed #d1d5db; background:rgba(0,0,0,.02) }
+  .field{ background:var(--yellow) } .calc{ background:var(--orange) }
+  .hint{ padding:0 20px 18px; color:#6b7280; font-size:12px; }
+  .footer{ padding:12px 20px 20px; display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border) }
+  button{ border:1px solid var(--border); background:#fff; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+  button.primary{ background:var(--accent); color:#fff; border-color:transparent }
+  .kpi{ padding:12px 20px 8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+  .pill{ background:#f3f4f6; border:1px solid var(--border); border-radius:999px; padding:8px 12px; font-size:13px; color:#374151; }
+  .progress-wrap{ width:calc(100% - 40px); margin:6px 20px 16px; height:16px; background:#e5e7eb; border-radius:8px; overflow:hidden; }
+  .progress-bar{ height:100%; width:0%; background:linear-gradient(90deg,#60a5fa,#2563eb); transition:width .3s ease; }
+  .progress-text{ text-align:right; padding:0 20px 12px; color:#374151; font-size:12px; }
+  @media (max-width:640px){ .grid{grid-template-columns:1fr} .unit{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header">體力回復試算</div>
+
+    <!-- 輸入（黃底） -->
+    <div class="grid">
+      <div class="row">
+        <div class="label">體力上限</div>
+        <div class="field"><input id="cap" type="text" inputmode="numeric" placeholder="例如 30" /><div class="unit">體力</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">目前體力</div>
+        <div class="field"><input id="current" type="text" inputmode="numeric" placeholder="例如 15" /><div class="unit">體力</div></div>
+        <div></div>
+      </div>
+    </div>
+
+    <div class="hint">規則：每 <strong>1 體力＝30 分鐘</strong> 回復。</div>
+
+    <!-- 結果（橘底） -->
+    <div class="grid">
+      <div class="row">
+        <div class="label">還差</div>
+        <div class="calc"><input id="needStam" type="text" value="—" readonly /><div class="unit">體力</div></div>
+        <div></div>
+      </div>
+      <div class="row">
+        <div class="label">需要時間</div>
+        <div class="calc"><input id="needTime" type="text" value="—" readonly /><div class="unit">耗時</div></div>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- 進度條 -->
+    <div class="kpi">
+      <div class="pill">目前：<span id="curText">0</span>/<span id="capText">0</span></div>
+      <div class="pill">進度：<span id="pctText">0%</span></div>
+    </div>
+    <div class="progress-wrap"><div class="progress-bar" id="bar"></div></div>
+    <div class="progress-text">完成度：<span id="pctText2">0%</span></div>
+
+    <div class="footer">
+      <button class="primary" id="fillDemo">填入示例數據</button>
+      <button id="resetAll">清空</button>
+      <button id="save">儲存輸入</button>
+      <span style="margin-left:auto;color:#6b7280;font-size:12px">資料僅存於本機瀏覽器</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const qs=(s)=>document.querySelector(s);
+  const fmt=(n)=>isFinite(n)?Number(n).toLocaleString('zh-Hant-TW'):'—';
+  const toNum=(s)=>{ if(!s) return NaN; const c=String(s).replace(/[,\s]/g,''); return c===''?NaN:Math.floor(Number(c)); };
+
+  const $cap=qs('#cap'), $current=qs('#current');
+  const $needStam=qs('#needStam'), $needTime=qs('#needTime');
+  const $curText=qs('#curText'), $capText=qs('#capText'), $pctText=qs('#pctText'), $pctText2=qs('#pctText2'), $bar=qs('#bar');
+
+  const MIN_PER_POINT = 30; // 1 體力 = 30 分鐘
+
+  function calculate(){
+    const cap = toNum($cap.value);
+    const cur = toNum($current.value);
+
+    let need = NaN, minutes = NaN, percent = 0;
+
+    if (isFinite(cap) && cap>=0 && isFinite(cur) && cur>=0){
+      const curClamped = Math.min(cur, cap);
+      need = Math.max(cap - curClamped, 0);
+      percent = cap>0 ? (curClamped/cap)*100 : 0;
+      minutes = need * MIN_PER_POINT;
+    }
+
+    $needStam.value = isFinite(need)? fmt(need):'—';
+    if (isFinite(minutes)){
+      const hr = Math.floor(minutes/60), min = minutes%60;
+      $needTime.value = (hr>0?`${hr} 小時 `:'') + (min>0?`${min} 分鐘`:'0 分鐘');
+    }else{
+      $needTime.value = '—';
+    }
+
+    $curText.textContent = isFinite(cur)? fmt(Math.min(cur,cap||0)) : '0';
+    $capText.textContent = isFinite(cap)? fmt(cap) : '0';
+    $pctText.textContent = percent.toFixed(2) + '%';
+    $pctText2.textContent = percent.toFixed(2) + '%';
+    $bar.style.width = percent.toFixed(2) + '%';
+  }
+
+  function prettifyOnBlur(e){ const n=toNum(e.target.value); if (isFinite(n)) e.target.value = fmt(n); }
+  [$cap,$current].forEach($el=>{ $el.addEventListener('input',calculate); $el.addEventListener('blur',prettifyOnBlur); });
+
+  qs('#fillDemo').addEventListener('click',()=>{ $cap.value=fmt(30); $current.value=fmt(15); calculate(); });
+  qs('#resetAll').addEventListener('click',()=>{ [$cap,$current].forEach($=>$.value=''); calculate(); localStorage.removeItem('stamina_timer'); });
+  qs('#save').addEventListener('click',()=>{ localStorage.setItem('stamina_timer', JSON.stringify({cap:$cap.value,current:$current.value})); alert('已儲存輸入到本機瀏覽器。'); });
+  (function restore(){ const raw=localStorage.getItem('stamina_timer'); if(!raw) return; try{ const d=JSON.parse(raw); if(d.cap)$cap.value=d.cap; if(d.current)$current.value=d.current; }catch(e){} })();
+
+  calculate();
+</script>
+</body>
+</html>
