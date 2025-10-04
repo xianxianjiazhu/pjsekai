@@ -10,7 +10,7 @@
   html, body { height:100%; }
   body{margin:0;font-family:ui-sans-serif,system-ui,"Noto Sans TC";background:var(--bg)}
   .wrap{max-width:880px;margin:24px auto;padding:12px; min-height:100vh;}
-  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .tab{
     border:1px solid var(--border); background:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;
   }
@@ -33,6 +33,7 @@
     <div class="tabs">
       <button class="tab active" data-target="p1">徽章目標與體力試算</button>
       <button class="tab" data-target="p2">體力回復試算</button>
+      <button class="tab" data-target="p3">中秋節活動計算</button>
     </div>
 
     <div id="p1" class="panel active">
@@ -41,6 +42,10 @@
 
     <div id="p2" class="panel">
       <iframe id="frame2" src="stamina_timer.html" title="體力回復"></iframe>
+    </div>
+
+    <div id="p3" class="panel">
+      <iframe id="frame3" src="mid-autumn-event.html" title="中秋節活動計算"></iframe>
     </div>
   </div>
 
@@ -80,6 +85,7 @@
   function autoResize(){
     fitFrame(document.getElementById('frame1'));
     fitFrame(document.getElementById('frame2'));
+    fitFrame(document.getElementById('frame3'));
   }
 
   window.addEventListener('load', ()=>{
