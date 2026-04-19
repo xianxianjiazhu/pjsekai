@@ -13,18 +13,18 @@
 
       <div class="kpi">
         <div class="pill">公式：1 + 隊長 + (四位隊員合計 × 0.2)</div>
-        <div class="pill">百分比輸入，例如 150 代表 150%</div>
+        <div class="pill">實效值：隊長% + (四位隊員%合計 × 0.2)</div>
       </div>
 
       <div class="grid">
         <div class="row">
           <div class="label">隊長</div>
           <div class="field">
-            <input type="text" id="leader" value="0" inputmode="decimal" />
+            <input type="number" id="leader" value="100" step="1" min="0" />
             <div class="unit">%</div>
           </div>
           <div class="calc">
-            <input type="text" id="leaderRate" value="0.0000" readonly />
+            <input type="text" id="leaderRate" value="1.0000" readonly />
             <div class="unit">換算</div>
           </div>
         </div>
@@ -32,11 +32,11 @@
         <div class="row">
           <div class="label">隊員 1</div>
           <div class="field">
-            <input type="text" id="member1" value="0" inputmode="decimal" />
+            <input type="number" id="member1" value="100" step="1" min="0" />
             <div class="unit">%</div>
           </div>
           <div class="calc">
-            <input type="text" id="member1Rate" value="0.0000" readonly />
+            <input type="text" id="member1Rate" value="1.0000" readonly />
             <div class="unit">換算</div>
           </div>
         </div>
@@ -44,11 +44,11 @@
         <div class="row">
           <div class="label">隊員 2</div>
           <div class="field">
-            <input type="text" id="member2" value="0" inputmode="decimal" />
+            <input type="number" id="member2" value="100" step="1" min="0" />
             <div class="unit">%</div>
           </div>
           <div class="calc">
-            <input type="text" id="member2Rate" value="0.0000" readonly />
+            <input type="text" id="member2Rate" value="1.0000" readonly />
             <div class="unit">換算</div>
           </div>
         </div>
@@ -56,11 +56,11 @@
         <div class="row">
           <div class="label">隊員 3</div>
           <div class="field">
-            <input type="text" id="member3" value="0" inputmode="decimal" />
+            <input type="number" id="member3" value="100" step="1" min="0" />
             <div class="unit">%</div>
           </div>
           <div class="calc">
-            <input type="text" id="member3Rate" value="0.0000" readonly />
+            <input type="text" id="member3Rate" value="1.0000" readonly />
             <div class="unit">換算</div>
           </div>
         </div>
@@ -68,11 +68,11 @@
         <div class="row">
           <div class="label">隊員 4</div>
           <div class="field">
-            <input type="text" id="member4" value="0" inputmode="decimal" />
+            <input type="number" id="member4" value="100" step="1" min="0" />
             <div class="unit">%</div>
           </div>
           <div class="calc">
-            <input type="text" id="member4Rate" value="0.0000" readonly />
+            <input type="text" id="member4Rate" value="1.0000" readonly />
             <div class="unit">換算</div>
           </div>
         </div>
@@ -80,7 +80,7 @@
         <div class="row">
           <div class="label">隊員合計</div>
           <div class="calc" style="grid-column: span 2;">
-            <input type="text" id="memberTotal" value="0.0000" readonly />
+            <input type="text" id="memberTotal" value="4.0000" readonly />
             <div class="unit">合計換算</div>
           </div>
         </div>
@@ -88,15 +88,23 @@
         <div class="row">
           <div class="label">隊員加權後</div>
           <div class="calc" style="grid-column: span 2;">
-            <input type="text" id="memberWeighted" value="0.0000" readonly />
+            <input type="text" id="memberWeighted" value="0.8000" readonly />
             <div class="unit">× 0.2</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="label">實效值</div>
+          <div class="calc" style="grid-column: span 2;">
+            <input type="text" id="effectivePercent" value="180.00" readonly />
+            <div class="unit">%</div>
           </div>
         </div>
 
         <div class="row">
           <div class="label">最終倍率</div>
           <div class="calc" style="grid-column: span 2;">
-            <input type="text" id="result" value="1.0000" readonly />
+            <input type="text" id="result" value="2.8000" readonly />
             <div class="unit">倍率</div>
           </div>
         </div>
@@ -105,15 +113,15 @@
       <div class="progress-wrap">
         <div class="progress-bar" id="progressBar"></div>
       </div>
-      <div class="progress-text" id="progressText">目前倍率：1.0000</div>
+      <div class="progress-text" id="progressText">目前倍率：2.8000｜實效值：180.00%</div>
 
       <div class="hint">
-        說明：輸入百分比後會自動除以 100，再依公式計算。例：隊長輸入 150，代表 1.5。
+        說明：輸入框可用上下箭頭微調。百分比會自動除以 100 後計算倍率；實效值則以百分比直接顯示。
       </div>
 
       <div class="footer">
         <button class="primary" type="button" onclick="calculate()">計算</button>
-        <button type="button" onclick="resetFields()">清空</button>
+        <button type="button" onclick="resetFields()">重設為 100</button>
       </div>
     </div>
   </div>
@@ -122,25 +130,31 @@
     const inputIds = ["leader", "member1", "member2", "member3", "member4"];
 
     function parseValue(value) {
-      const cleaned = String(value).replace(/,/g, "").trim();
-      const num = parseFloat(cleaned);
+      const num = parseFloat(value);
       return Number.isFinite(num) ? num : 0;
     }
 
-    function setText(id, value) {
-      document.getElementById(id).value = value.toFixed(4);
+    function setText(id, value, digits = 4) {
+      document.getElementById(id).value = value.toFixed(digits);
     }
 
     function calculate() {
-      const leader = parseValue(document.getElementById("leader").value) / 100;
-      const member1 = parseValue(document.getElementById("member1").value) / 100;
-      const member2 = parseValue(document.getElementById("member2").value) / 100;
-      const member3 = parseValue(document.getElementById("member3").value) / 100;
-      const member4 = parseValue(document.getElementById("member4").value) / 100;
+      const leaderPercent = parseValue(document.getElementById("leader").value);
+      const member1Percent = parseValue(document.getElementById("member1").value);
+      const member2Percent = parseValue(document.getElementById("member2").value);
+      const member3Percent = parseValue(document.getElementById("member3").value);
+      const member4Percent = parseValue(document.getElementById("member4").value);
+
+      const leader = leaderPercent / 100;
+      const member1 = member1Percent / 100;
+      const member2 = member2Percent / 100;
+      const member3 = member3Percent / 100;
+      const member4 = member4Percent / 100;
 
       const memberTotal = member1 + member2 + member3 + member4;
       const memberWeighted = memberTotal * 0.2;
       const total = 1 + leader + memberWeighted;
+      const effectivePercent = leaderPercent + (member1Percent + member2Percent + member3Percent + member4Percent) * 0.2;
 
       setText("leaderRate", leader);
       setText("member1Rate", member1);
@@ -150,21 +164,23 @@
       setText("memberTotal", memberTotal);
       setText("memberWeighted", memberWeighted);
       setText("result", total);
+      setText("effectivePercent", effectivePercent, 2);
 
       const progressPercent = Math.max(0, Math.min(total * 100, 1000));
       document.getElementById("progressBar").style.width = progressPercent + "%";
-      document.getElementById("progressText").textContent = `目前倍率：${total.toFixed(4)}`;
+      document.getElementById("progressText").textContent = `目前倍率：${total.toFixed(4)}｜實效值：${effectivePercent.toFixed(2)}%`;
     }
 
     function resetFields() {
       inputIds.forEach(id => {
-        document.getElementById(id).value = "0";
+        document.getElementById(id).value = "100";
       });
       calculate();
     }
 
     inputIds.forEach(id => {
       document.getElementById(id).addEventListener("input", calculate);
+      document.getElementById(id).addEventListener("change", calculate);
     });
 
     calculate();
