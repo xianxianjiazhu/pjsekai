@@ -303,6 +303,20 @@
       </div>
     </div>
     <div id="lookupResult"></div>
+
+    <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);">
+      <div class="calc-grid">
+        <div>
+          <label>想查詢的玩家 ID</label>
+          <input type="text" id="lookupIdInput" placeholder="例：7013930982571285249">
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="refresh-btn" id="lookupIdBtn" style="margin-left:0;width:100%;">查詢</button>
+        </div>
+      </div>
+      <p class="result-note">只有前 100 名內的玩家才查得到詳細時速資料（近1h／3h／24h的次數、得分、時速、平均分），官方 border 端點（T100以外）沒有提供這些細節。</p>
+      <div id="lookupIdResult"></div>
+    </div>
   </div>
 
   <footer>
@@ -324,7 +338,8 @@ let CHECKPOINT_DATE = new Date(FALLBACK_CHECKPOINT_UTC);
 
 let liveData = null;      // 成功取得的即時資料會存這（top100 原始物件）
 let currentRanks = [];    // 目前顯示中的名次清單（top100 + border 合併後）
-let fullTop100Raw = [];   // 完整 T1~T100 原始資料，供「輸入名次查詢」精確比對用
+let fullTop100Raw = [];   // 完整 T1~T100 簡化資料（rank/score/speed），供「輸入名次查詢」精確比對用
+let fullTop100PlayersRaw = []; // 完整 T1~T100 原始玩家物件（含1h/3h/24h統計、玩家ID等），供「輸入ID查詢」使用
 let lastFetchedAt = null; // 上次成功抓到資料的時間
 let lastCalcAt = null;    // 上次重新計算預測的時間
 
@@ -559,6 +574,7 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     const top100Ranks = pickReferenceRanks(data.player_top_100_rankings || [], hoursSinceStart);
     fullTop100Raw = (data.player_top_100_rankings || [])
       .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
+    fullTop100PlayersRaw = data.player_top_100_rankings || [];
     const borderRaw = await tryFetchBorder();
 
     document.getElementById('warmupWarning').style.display =
@@ -701,6 +717,66 @@ function lookupRank(){
 document.getElementById('lookupBtn').addEventListener('click', lookupRank);
 document.getElementById('lookupRankInput').addEventListener('keydown', e => {
   if(e.key === 'Enter') lookupRank();
+});
+
+function statBlock(title, stats){
+  if(!stats) stats = { count:0, score:0, speed:0, average:0 };
+  return `
+    <div style="background:var(--bg-panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:10px;text-align:center;">${title}</div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">次數 (Plays)</span><span class="mono">${fmtNum(stats.count)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">得分 (Score)</span><span class="mono">${fmtNum(stats.score)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">時速 (Speed)</span><span class="mono">${fmtNum(stats.speed)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span class="dim">平均分 (Avg)</span><span class="mono">${fmtNum(stats.average)}</span></div>
+    </div>
+  `;
+}
+
+function lookupPlayerId(){
+  const input = document.getElementById('lookupIdInput');
+  const resultDiv = document.getElementById('lookupIdResult');
+  const id = input.value.trim();
+
+  if(!id){
+    resultDiv.innerHTML = `<p class="result-note" style="color:var(--pink);">請輸入玩家 ID</p>`;
+    return;
+  }
+
+  const player = fullTop100PlayersRaw.find(p => {
+    const pid = p.last_player_info && p.last_player_info.profile && p.last_player_info.profile.id;
+    return pid !== undefined && String(pid) === id;
+  });
+
+  if(!player){
+    resultDiv.innerHTML = `
+      <p class="result-note" style="color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;">
+        ⚠ 這個 ID 不在目前前 100 名內，無法查詢詳細時速資料。可以改用上面的「輸入名次查詢」查該名次的預測分數線。
+      </p>
+    `;
+    return;
+  }
+
+  resultDiv.innerHTML = `
+    <div style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <span class="rank-tag" style="font-size:16px;">T${player.rank}</span>
+          <span style="margin-left:10px;font-weight:600;">${player.name}</span>
+        </div>
+        <div class="mono" style="font-size:18px;font-weight:700;">${fmtNum(player.score)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+        ${statBlock('過去 1 小時', player.last_1h_stats)}
+        ${statBlock('過去 3 小時', player.last_3h_stats)}
+        ${statBlock('過去 24 小時', player.last_24h_stats)}
+      </div>
+    </div>
+  `;
+}
+
+document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId);
+document.getElementById('lookupIdInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') lookupPlayerId();
 });
 
 loadLive();
