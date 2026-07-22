@@ -31,24 +31,24 @@
 <body>
   <div class="wrap">
     <div class="tabs">
-      <button class="tab active" data-target="p1">徽章目標與體力試算</button>
+      <button class="tab active" data-target="p4">分數線預測</button>
+      <button class="tab" data-target="p1">徽章目標與體力試算</button>
       <button class="tab" data-target="p2">體力回復試算</button>
       <button class="tab" data-target="p3">倍率計算</button>
     </div>
-
-    <div id="p1" class="panel active">
+    <div id="p4" class="panel active">
+      <iframe id="frame4" src="score_predict.html" title="分數線預測"></iframe>
+    </div>
+    <div id="p1" class="panel">
       <iframe id="frame1" src="badge_calc.html" title="徽章試算"></iframe>
     </div>
-
     <div id="p2" class="panel">
       <iframe id="frame2" src="stamina_timer.html" title="體力回復"></iframe>
     </div>
-
     <div id="p3" class="panel">
       <iframe id="frame3" src="multiplier.html" title="倍率計算"></iframe>
     </div>
   </div>
-
 <script>
   // 分頁切換
   const tabs=[...document.querySelectorAll('.tab')];
@@ -62,7 +62,6 @@
       autoResize();
     });
   });
-
   // 自動依內容高度調整（不低於視窗高度）
   function fitFrame(iframe){
     try{
@@ -86,14 +85,13 @@
     fitFrame(document.getElementById('frame1'));
     fitFrame(document.getElementById('frame2'));
     fitFrame(document.getElementById('frame3'));
+    fitFrame(document.getElementById('frame4'));
   }
-
   window.addEventListener('load', ()=>{
     autoResize();
     let count = 0;
     const t = setInterval(()=>{ autoResize(); if(++count>10) clearInterval(t); }, 300);
   });
-
   // 視窗改變大小時也維持至少滿版
   window.addEventListener('resize', autoResize);
 </script>

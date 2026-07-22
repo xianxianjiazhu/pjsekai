@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台服・分數線預測</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg:#f6f7fb;
+    --bg-panel:#ffffff;
+    --bg-panel-2:#f1f2f8;
+    --line:#e5e7eb;
+    --text:#1f2430;
+    --text-dim:#6b7280;
+    --cyan:#4f46e5;
+    --pink:#db2777;
+    --purple:#7c3aed;
+    --amber:#d97706;
+    --green:#059669;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Space Grotesk', system-ui, "Noto Sans TC", sans-serif;
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:.15em;
+    color:var(--cyan);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  h1{
+    font-size:26px;
+    margin:0 0 4px;
+    font-weight:700;
+    line-height:1.3;
+  }
+  .event-name{color:var(--text-dim);font-size:14px;margin:0 0 22px;}
+
+  /* ---- Hero: countdown ---- */
+  .hero{
+    background:linear-gradient(155deg, var(--bg-panel-2), var(--bg-panel));
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:26px 24px;
+    margin-bottom:22px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .hero::before{
+    content:"";
+    position:absolute;top:-40%;right:-10%;
+    width:280px;height:280px;
+    background:radial-gradient(circle, rgba(219,39,119,0.08), transparent 70%);
+    pointer-events:none;
+  }
+  .hero-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--pink);letter-spacing:.1em;margin-bottom:10px;}
+  .countdown{
+    display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;
+  }
+  .cd-unit{display:flex;flex-direction:column;align-items:flex-start;}
+  .cd-num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:44px;font-weight:700;
+    line-height:1;
+    background:linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .cd-sub{font-size:11px;color:var(--text-dim);margin-top:4px;letter-spacing:.08em;}
+  .checkpoint-time{margin-top:16px;font-size:13px;color:var(--text-dim);}
+  .checkpoint-time b{color:var(--text);font-weight:600;}
+  .status-pill{
+    display:inline-block;margin-top:12px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    padding:4px 10px;border-radius:999px;
+    border:1px solid var(--line);color:var(--text-dim);
+  }
+  .status-pill.live{color:var(--green);border-color:rgba(5,150,105,0.35);}
+  .status-pill.snap{color:var(--amber);border-color:rgba(217,119,6,0.35);}
+
+  /* ---- Section headers ---- */
+  .section-title{
+    display:flex;align-items:center;gap:10px;
+    margin:30px 0 12px;
+  }
+  .section-title .num{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--purple);font-size:13px;
+  }
+  .section-title h2{font-size:16px;margin:0;font-weight:600;}
+
+  /* ---- Freshness ---- */
+  .freshness{
+    display:flex;gap:16px;flex-wrap:wrap;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  .freshness b{color:var(--text);font-weight:600;}
+
+  /* ---- Table ---- */
+  .table-panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow-x:auto;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .table-panel thead th{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px;}
+  th,td{padding:11px 14px;text-align:right;white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  th{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;color:var(--text-dim);
+    letter-spacing:.05em;font-weight:500;
+    border-bottom:1px solid var(--line);
+  }
+  tbody tr{border-bottom:1px solid var(--line);}
+  tbody tr:last-child{border-bottom:none;}
+  tbody tr:hover{background:rgba(79,70,229,0.05);}
+  .rank-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;color:var(--cyan);
+  }
+  .predicted{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;color:var(--pink);
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .dim{color:var(--text-dim);}
+
+  /* ---- Calculator ---- */
+  .calc-panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .calc-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:16px;
+  }
+  @media (max-width:560px){.calc-grid{grid-template-columns:1fr;}}
+  label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+  input[type=number], select{
+    width:100%;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+  }
+  input[type=number]:focus, select:focus{outline:none;border-color:var(--cyan);}
+  .quickfill{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .qf-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    padding:6px 10px;border-radius:8px;
+    cursor:pointer;transition:.15s;
+  }
+  .qf-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .result{
+    background:linear-gradient(120deg, rgba(79,70,229,0.06), rgba(219,39,119,0.06));
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 20px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+  }
+  .result-label{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+  .result-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:28px;font-weight:700;
+    color:var(--text);
+  }
+  .result-note{font-size:12px;color:var(--text-dim);margin-top:10px;line-height:1.6;}
+
+  footer{
+    margin-top:34px;
+    font-size:12px;
+    color:var(--text-dim);
+    line-height:1.7;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  footer a{color:var(--cyan);text-decoration:none;}
+  .refresh-btn{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    background:var(--bg-panel-2);border:1px solid var(--line);
+    color:var(--cyan);padding:7px 14px;border-radius:8px;cursor:pointer;
+    margin-left:auto;
+  }
+  .refresh-btn:hover{border-color:var(--cyan);}
+  .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>分數線預測</h1>
+  <img id="eventBanner" src="assets/event_banner.jpg" alt="活動橫幅"
+       style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin:8px 0 14px;display:none;border:1px solid var(--line);"
+       onload="this.style.display='block';"
+       onerror="this.style.display='none';">
+  <p class="event-name" id="eventName">載入活動資訊中…（會自動抓目前正在進行的活動）</p>
+
+  <div class="hero">
+    <div class="top-row">
+      <div class="hero-label">⏱ 距離活動結算</div>
+      <span id="statusPill" class="status-pill">連線中…</span>
+    </div>
+    <div class="countdown" id="countdown">
+      <div class="cd-unit"><span class="cd-num" id="cdD">--</span><span class="cd-sub">天</span></div>
+      <div class="cd-unit"><span class="cd-num" id="cdH">--</span><span class="cd-sub">時</span></div>
+      <div class="cd-unit"><span class="cd-num" id="cdM">--</span><span class="cd-sub">分</span></div>
+      <div class="cd-unit"><span class="cd-num" id="cdS">--</span><span class="cd-sub">秒</span></div>
+    </div>
+    <p class="checkpoint-time">結算時間：<b id="checkpointStr">—</b>　台灣時間</p>
+  </div>
+
+  <div class="section-title"><span class="num">01</span><h2>各名次即時分數與預測分數線</h2></div>
+  <div class="freshness">
+    <span>資料獲取時間：<b id="fetchedAgo">—</b></span>
+    <span>預測計算時間：<b id="calcAgo">—</b></span>
+  </div>
+  <p id="warmupWarning" class="result-note" style="display:none;color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;">
+    ⚠ 活動開始還不到 1 小時，時速資料還不穩定，這段時間的預測分數線僅供粗略參考，建議 1 小時後再回來看比較準確。
+  </p>
+  <p id="charStatsNote" class="result-note" style="display:none;"></p>
+  <div class="table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>名次</th>
+          <th>目前分數</th>
+          <th>近24h時速</th>
+          <th>結算前預估增加</th>
+          <th>預測分數線</th>
+          <th>同角色歷史平均</th>
+        </tr>
+      </thead>
+      <tbody id="rankTableBody">
+        <tr><td colspan="6" class="dim">載入排名資料中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，因為精彩片段（T200以上）官方資料沒有提供近1h／3h／24h時速，只能用這種方式估算，會比 T1～T100 的近24h實測時速更粗略，僅供參考。</p>
+
+  <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
+  <div class="calc-panel">
+    <div class="calc-grid">
+      <div>
+        <label>目前分數（PT）</label>
+        <input type="number" id="curScore" placeholder="例：8500000">
+      </div>
+      <div>
+        <label>近期時速（每小時 PT）</label>
+        <input type="number" id="curSpeed" placeholder="例：250000">
+      </div>
+    </div>
+    <div class="quickfill" id="quickfill">
+      <!-- 由 JS 依即時排名資料動態產生「套用第N名時速」按鈕 -->
+    </div>
+    <div class="result">
+      <div>
+        <div class="result-label">預測精彩片段結算分數</div>
+        <div class="result-value" id="resultValue">—</div>
+      </div>
+      <div class="result-label" id="resultRemain">尚未計算</div>
+    </div>
+    <p class="result-note">
+      公式：預測分數 = 目前分數 ＋ 時速（PT/小時）× 距結算剩餘小時數。時速建議抓「近24小時均速」較穩定；若你這幾天正在加速衝刺，可改填近1～3小時時速較貼近實際節奏。此為線性推估，實際會受連假、活動加成、玩家後期衝刺等因素影響，僅供參考。
+    </p>
+  </div>
+
+  <div class="section-title"><span class="num">03</span><h2>輸入名次查詢</h2></div>
+  <div class="calc-panel">
+    <div class="calc-grid">
+      <div>
+        <label>想查詢的名次</label>
+        <input type="number" id="lookupRankInput" placeholder="例：750" min="1" max="100000">
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <button class="refresh-btn" id="lookupBtn" style="margin-left:0;width:100%;">查詢</button>
+      </div>
+    </div>
+    <div id="lookupResult"></div>
+  </div>
+
+  <footer>
+    <div class="top-row">
+      <span>資料來源：<a href="https://docs.hisekai.org/zh/docs" target="_blank" rel="noopener">Hi Sekai API</a>（非官方，社群維護）</span>
+      <button class="refresh-btn" id="refreshBtn">↻ 重新整理即時資料</button>
+    </div>
+    <p id="dataNote" style="margin-top:10px;"></p>
+  </footer>
+
+</div>
+
+<script>
+// ---- 精彩片段結算時間 ----
+// 每次抓到即時資料時會用當期 API 回傳的 aggregate_at（精彩片段結算時間點）更新這個值，
+// 所以同一份網頁換到下一期活動也能自動對到正確的結算時間，不用手動改。
+const FALLBACK_CHECKPOINT_UTC = "2026-07-21T12:59:59Z"; // 僅在完全連不上 API 時當備援（173期 aggregate_at）
+let CHECKPOINT_DATE = new Date(FALLBACK_CHECKPOINT_UTC);
+
+let liveData = null;      // 成功取得的即時資料會存這（top100 原始物件）
+let currentRanks = [];    // 目前顯示中的名次清單（top100 + border 合併後）
+let fullTop100Raw = [];   // 完整 T1~T100 原始資料，供「輸入名次查詢」精確比對用
+let lastFetchedAt = null; // 上次成功抓到資料的時間
+let lastCalcAt = null;    // 上次重新計算預測的時間
+
+const MILESTONE_RANKS = [10,20,30,40,50,100,200,300,400,500,1000,2000,3000,4000,5000,10000,20000,30000,50000,100000];
+
+function relTime(date){
+  if(!date) return '—';
+  const sec = Math.floor((new Date() - date)/1000);
+  if(sec < 60) return `${sec}秒前`;
+  const min = Math.floor(sec/60);
+  if(min < 60) return `${min}分鐘前`;
+  const hr = Math.floor(min/60);
+  return `${hr}小時${min%60}分鐘前`;
+}
+
+function updateFreshnessDisplay(){
+  document.getElementById('fetchedAgo').textContent = relTime(lastFetchedAt);
+  document.getElementById('calcAgo').textContent = relTime(lastCalcAt);
+}
+
+function fmtNum(n){
+  return Math.round(n).toLocaleString('zh-TW');
+}
+
+function updateCountdown(){
+  const now = new Date();
+  let diff = CHECKPOINT_DATE - now;
+  const pill = document.getElementById('statusPill');
+  if(diff <= 0){
+    document.getElementById('cdD').textContent = '00';
+    document.getElementById('cdH').textContent = '00';
+    document.getElementById('cdM').textContent = '00';
+    document.getElementById('cdS').textContent = '00';
+    pill.textContent = '已結算 / 已過結算點';
+    return 0;
+  }
+  const d = Math.floor(diff/86400000); diff -= d*86400000;
+  const h = Math.floor(diff/3600000); diff -= h*3600000;
+  const m = Math.floor(diff/60000); diff -= m*60000;
+  const s = Math.floor(diff/1000);
+  document.getElementById('cdD').textContent = String(d).padStart(2,'0');
+  document.getElementById('cdH').textContent = String(h).padStart(2,'0');
+  document.getElementById('cdM').textContent = String(m).padStart(2,'0');
+  document.getElementById('cdS').textContent = String(s).padStart(2,'0');
+  return (CHECKPOINT_DATE - now) / 3600000; // 回傳剩餘小時數
+}
+
+function renderCheckpointStr(){
+  const opts = { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  document.getElementById('checkpointStr').textContent =
+    new Intl.DateTimeFormat('zh-TW', opts).format(CHECKPOINT_DATE);
+}
+
+let charStats = null; // { character, sampleCount, avgByRank }
+
+function buildRankTable(ranks, remainHours){
+  const body = document.getElementById('rankTableBody');
+  body.innerHTML = '';
+  ranks.forEach(r=>{
+    const tr = document.createElement('tr');
+    if(r.available === false || r.score === null){
+      tr.innerHTML = `
+        <td class="rank-tag">T${r.rank}</td>
+        <td class="mono dim" colspan="5">— 無官方精彩片段資料（此名次非固定檢查點，或該資料尚未更新）</td>
+      `;
+      body.appendChild(tr);
+      return;
+    }
+    const gain = Math.max(0, r.speed * remainHours);
+    const predicted = r.score + gain;
+    const speedLabel = r.isAverage
+      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
+      : `${fmtNum(r.speed)}/h`;
+    const histAvg = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
+      ? fmtNum(charStats.avgByRank[r.rank])
+      : '<span class="dim">—</span>';
+    tr.innerHTML = `
+      <td class="rank-tag">T${r.rank}</td>
+      <td class="mono">${fmtNum(r.score)}</td>
+      <td class="mono dim">${speedLabel}</td>
+      <td class="mono dim">+${fmtNum(gain)}</td>
+      <td class="predicted">${fmtNum(predicted)}</td>
+      <td class="mono dim">${histAvg}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function buildQuickfill(ranks){
+  const wrap = document.getElementById('quickfill');
+  wrap.innerHTML = '';
+  const curated = [1, 5, 10, 30, 50, 100, 200, 500, 1000, 2000, 5000];
+  ranks
+    .filter(r => curated.includes(r.rank) && r.available !== false && r.score !== null)
+    .forEach(r=>{
+      const btn = document.createElement('button');
+      btn.className = 'qf-btn';
+      btn.type = 'button';
+      btn.textContent = r.isAverage
+        ? `套用 T${r.rank} 均速 (${fmtNum(r.speed)}/h)`
+        : `套用 T${r.rank} 時速 (${fmtNum(r.speed)}/h)`;
+      btn.onclick = () => {
+        document.getElementById('curSpeed').value = Math.round(r.speed);
+        calcCustom();
+      };
+      wrap.appendChild(btn);
+    });
+}
+
+function calcCustom(){
+  const score = parseFloat(document.getElementById('curScore').value);
+  const speed = parseFloat(document.getElementById('curSpeed').value);
+  const remainHours = updateCountdown();
+  const resultValue = document.getElementById('resultValue');
+  const resultRemain = document.getElementById('resultRemain');
+  if(isNaN(score) || isNaN(speed)){
+    resultValue.textContent = '—';
+    resultRemain.textContent = '請輸入目前分數與時速';
+    return;
+  }
+  const predicted = score + Math.max(0, speed * remainHours);
+  resultValue.textContent = fmtNum(predicted) + ' PT';
+  resultRemain.textContent = `剩餘約 ${remainHours.toFixed(1)} 小時 · 時速 ${fmtNum(speed)}/h`;
+}
+
+function renderAll(ranks, isLive){
+  currentRanks = ranks;
+  lastFetchedAt = new Date();
+  lastCalcAt = new Date();
+  const remainHours = updateCountdown();
+  buildRankTable(ranks, remainHours);
+  buildQuickfill(ranks);
+  calcCustom();
+  updateFreshnessDisplay();
+  const pill = document.getElementById('statusPill');
+  if(isLive){
+    pill.textContent = '● 即時資料';
+    pill.className = 'status-pill live';
+  } else {
+    pill.textContent = '◐ 備援快照資料（非即時）';
+    pill.className = 'status-pill snap';
+  }
+}
+
+function pickReferenceRanks(top100arr, hoursSinceStart){
+  const wanted = MILESTONE_RANKS.filter(r => r <= 100);
+  return top100arr
+    .filter(p => wanted.includes(p.rank))
+    .map(p => {
+      const rawSpeed = (p.last_24h_stats && p.last_24h_stats.speed) || 0;
+      const useAverage = rawSpeed <= 0 && hoursSinceStart;
+      return {
+        rank: p.rank,
+        score: p.score,
+        speed: useAverage ? p.score / hoursSinceStart : rawSpeed,
+        isAverage: useAverage || undefined, // 近24h時速為0時，退而求其次用活動平均時速估算
+      };
+    })
+    .sort((a,b)=>a.rank-b.rank);
+}
+
+const API_URL = 'https://api.hisekai.org/tw/event/live/top100';
+
+// ★ 你的 Apps Script 代理網址（優先使用，沒有 CORS 問題，也能同時拿 border 資料）
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
+
+// 依序嘗試：Apps Script 代理 -> 直連 -> 公開 CORS 代理們 -> 全部失敗才用快照
+const FETCH_STRATEGIES = [
+  { label: 'Apps Script 代理', url: `${APPS_SCRIPT_URL}?mode=proxy&target=top100` },
+  { label: '直連',             url: API_URL },
+  { label: 'corsproxy.io',     url: 'https://corsproxy.io/?url=' + encodeURIComponent(API_URL) },
+  { label: 'allorigins',       url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_URL) },
+];
+
+async function tryFetchLive(){
+  for(const strat of FETCH_STRATEGIES){
+    try{
+      document.getElementById('dataNote').textContent = `正在嘗試連線（${strat.label}）…`;
+      const res = await fetch(strat.url, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if(!data || !Array.isArray(data.player_top_100_rankings)) throw new Error('資料格式異常');
+      return { data, via: strat.label };
+    }catch(err){
+      console.warn(`[${strat.label}] 連線失敗`, err);
+    }
+  }
+  return null;
+}
+
+// 額外抓 border 端點（T1000/2000/5000...），失敗就靜靜跳過，不影響主表
+async function tryFetchBorder(){
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return Array.isArray(data.player_border_rankings) ? data.player_border_rankings : [];
+  }catch(err){
+    console.warn('border 資料取得失敗（可能尚未有精彩片段快照，或欄位與預期不同）', err);
+    return [];
+  }
+}
+
+async function loadLive(){
+  document.getElementById('dataNote').textContent = '正在嘗試連線 Hi Sekai API…';
+  let result = await tryFetchLive();
+  let attempt = 1;
+  while(!result){
+    attempt++;
+    document.getElementById('dataNote').textContent =
+      `連線未成功，可能是 Apps Script 剛冷啟動，3 秒後自動重試（第 ${attempt} 次）…`;
+    await new Promise(r => setTimeout(r, 3000));
+    result = await tryFetchLive();
+  }
+  {
+    const data = result.data;
+    liveData = data;
+    if(data.aggregate_at){
+      CHECKPOINT_DATE = new Date(data.aggregate_at);
+      renderCheckpointStr();
+    }
+    document.getElementById('eventName').textContent =
+      `第 ${data.id} 期・${data.name}`;
+
+const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
+
+    // 活動開始至今的平均時速，給 top100(近24h時速為0時) 與 border(本來就沒有近期時速) 共用
+    const hoursSinceStart = data.start_at
+      ? Math.max(0.01, (new Date() - new Date(data.start_at)) / 3600000)
+      : null;
+
+    const top100Ranks = pickReferenceRanks(data.player_top_100_rankings || [], hoursSinceStart);
+    fullTop100Raw = (data.player_top_100_rankings || [])
+      .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
+    const borderRaw = await tryFetchBorder();
+
+    document.getElementById('warmupWarning').style.display =
+      (hoursSinceStart !== null && hoursSinceStart < 1) ? 'block' : 'none';
+
+    const foundBorderRanks = borderRaw
+      .filter(p => WANTED_BORDER_RANKS.includes(p.rank))
+      .map(p => ({
+        rank: p.rank,
+        score: p.score,
+        speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+        available: true,
+        isAverage: true, // 標記此時速是「開始至今平均」，非近1h/3h/24h實測
+      }));
+    const foundSet = new Set(foundBorderRanks.map(r => r.rank));
+    const missingBorderRanks = WANTED_BORDER_RANKS
+      .filter(r => !foundSet.has(r))
+      .map(r => ({ rank: r, score: null, speed: null, available: false }));
+    const borderRanks = [...foundBorderRanks, ...missingBorderRanks];
+    const ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
+
+    renderAll(ranks, true);
+    const missingLabel = missingBorderRanks.length ? `，T${missingBorderRanks.map(r=>r.rank).join('／T')} 目前無官方精彩片段資料` : '';
+    document.getElementById('dataNote').textContent =
+      `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
+
+    loadCharacterStats(data.id);
+  }
+}
+
+async function loadCharacterStats(eventId){
+  const note = document.getElementById('charStatsNote');
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?mode=character_stats&eventId=${eventId}`, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const stats = await res.json();
+    if(stats.error){
+      charStats = null;
+      note.style.display = 'none';
+    }else{
+      charStats = stats;
+      note.style.display = 'block';
+      note.textContent = `本期主打：${stats.character}（過去主打過 ${stats.sampleCount} 次一般活動）——「同角色歷史平均」欄位是這些過去活動在對應名次的最終分數平均值，可以拿來對照這次的預測分數線是偏高還是偏低。`;
+    }
+    // 重繪表格帶入歷史平均欄位
+    const remainHours = updateCountdown();
+    if(currentRanks.length) buildRankTable(currentRanks, remainHours);
+  }catch(err){
+    console.warn('角色歷史統計載入失敗', err);
+    charStats = null;
+    note.style.display = 'none';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadLive);
+document.getElementById('curScore').addEventListener('input', calcCustom);
+document.getElementById('curSpeed').addEventListener('input', calcCustom);
+
+renderCheckpointStr();
+setInterval(()=>{
+  updateCountdown();
+  updateFreshnessDisplay();
+  // 每次倒數更新時，用目前已載入的完整名次清單重算預測，維持即時感，不重新打 API
+  // 如果還在重試連線、尚未有任何資料，就先不畫表格
+  if(currentRanks.length){
+    buildRankTable(currentRanks, (CHECKPOINT_DATE - new Date())/3600000);
+  }
+  calcCustom();
+}, 1000);
+
+function lookupRank(){
+  const input = document.getElementById('lookupRankInput');
+  const resultDiv = document.getElementById('lookupResult');
+  const rank = parseInt(input.value, 10);
+
+  if(!rank || rank < 1 || rank > 100000){
+    resultDiv.innerHTML = `<p class="result-note" style="color:var(--pink);">請輸入 1~100000 之間的名次</p>`;
+    return;
+  }
+
+  const remainHours = updateCountdown();
+  let entry = null;
+  let isInterpolated = false;
+
+  // 1. T1~T100 有完整連續資料，直接精確比對
+  if(rank <= 100){
+    entry = fullTop100Raw.find(r => r.rank === rank);
+  }
+  // 2. 剛好命中已知的里程碑名次
+  if(!entry){
+    const known = currentRanks.find(r => r.rank === rank && r.available !== false && r.score !== null);
+    if(known) entry = known;
+  }
+  // 3. 都沒有的話，用最接近的上下兩個已知資料點做對數內插估算
+  if(!entry){
+    const pool = [...fullTop100Raw, ...currentRanks.filter(r => r.available !== false && r.score !== null)]
+      .filter((r,i,arr) => arr.findIndex(x => x.rank === r.rank) === i)
+      .sort((a,b) => a.rank - b.rank);
+    const lower = [...pool].reverse().find(r => r.rank < rank);
+    const upper = pool.find(r => r.rank > rank);
+    if(lower && upper){
+      const lr = Math.log(lower.rank), ur = Math.log(upper.rank), tr = Math.log(rank);
+      const ratio = (tr - lr) / (ur - lr);
+      const ls = Math.log(Math.max(lower.score,1)), us = Math.log(Math.max(upper.score,1));
+      entry = {
+        rank,
+        score: Math.exp(ls + (us - ls) * ratio),
+        speed: lower.speed + (upper.speed - lower.speed) * ratio,
+      };
+      isInterpolated = true;
+    }else if(lower || upper){
+      const ref = lower || upper;
+      entry = { rank, score: ref.score, speed: ref.speed };
+      isInterpolated = true;
+    }
+  }
+
+  if(!entry){
+    resultDiv.innerHTML = `<p class="result-note">目前還沒有足夠的資料可以估算這個名次，稍後再試一次。</p>`;
+    return;
+  }
+
+  const gain = Math.max(0, entry.speed * remainHours);
+  const predicted = entry.score + gain;
+  const tag = isInterpolated
+    ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
+    : (entry.isAverage ? '<span class="dim" style="font-size:11px;">（均速估算）</span>' : '');
+
+  resultDiv.innerHTML = `
+    <div class="result" style="margin-top:14px;">
+      <div>
+        <div class="result-label">T${rank} 預測分數線 ${tag}</div>
+        <div class="result-value">${fmtNum(predicted)}</div>
+      </div>
+      <div class="result-label">目前約 ${fmtNum(entry.score)}　時速約 ${fmtNum(entry.speed)}/h</div>
+    </div>
+  `;
+}
+
+document.getElementById('lookupBtn').addEventListener('click', lookupRank);
+document.getElementById('lookupRankInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') lookupRank();
+});
+
+loadLive();
+</script>
+</body>
+</html>
