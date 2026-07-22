@@ -94,6 +94,18 @@
   });
   // 視窗改變大小時也維持至少滿版
   window.addEventListener('resize', autoResize);
+
+  // 接收子頁面主動回報的高度（不受「載入後只調整3秒」的限制，資料晚到也能正確撐高）
+  window.addEventListener('message', (e)=>{
+    if(!e.data || e.data.type !== 'iframe-resize') return;
+    const frames = [document.getElementById('frame1'), document.getElementById('frame2'), document.getElementById('frame3'), document.getElementById('frame4')];
+    frames.forEach(f=>{
+      if(f && f.contentWindow === e.source){
+        const minH = Math.max(window.innerHeight - 120, 0);
+        f.style.height = Math.max(e.data.height + 20, minH) + 'px';
+      }
+    });
+  });
 </script>
 </body>
 </html>

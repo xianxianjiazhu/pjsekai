@@ -645,6 +645,20 @@ setInterval(()=>{
   calcCustom();
 }, 1000);
 
+// ---- 主動回報頁面高度給外層 index.html（如果是被 iframe 嵌入的話）----
+// 不管資料什麼時候載入完成、內容高度變幾次，都會即時通知父頁面調整 iframe 高度，
+// 不用父頁面自己猜要等多久，解決了 Apps Script 冷啟動導致撐高時機抓不準的問題。
+function reportHeightToParent(){
+  if(window.parent === window) return; // 不是被嵌入的情況就不用回報
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
+}
+window.addEventListener('load', reportHeightToParent);
+if(window.ResizeObserver){
+  new ResizeObserver(reportHeightToParent).observe(document.body);
+}
+setInterval(reportHeightToParent, 1000); // 保險：配合倒數/表格內容變化持續同步
+
 function lookupRank(){
   const input = document.getElementById('lookupRankInput');
   const resultDiv = document.getElementById('lookupResult');
