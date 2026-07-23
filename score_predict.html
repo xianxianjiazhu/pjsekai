@@ -108,6 +108,57 @@
   }
   .freshness b{color:var(--text);font-weight:600;}
 
+  /* ---- World Link 章節分頁籤 ---- */
+  .wl-tabs{
+    display:none; /* 預設隱藏，偵測到 World Link 活動才顯示 */
+    gap:6px;
+    flex-wrap:wrap;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:6px;
+    margin-bottom:14px;
+  }
+  .wl-tabs.active{ display:flex; }
+  .wl-tab{
+    flex:1 1 auto;
+    min-width:76px;
+    text-align:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    font-weight:600;
+    padding:9px 12px;
+    border-radius:8px;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    cursor:pointer;
+    transition:.15s;
+    white-space:nowrap;
+  }
+  .wl-tab:hover{color:var(--text);background:rgba(0,0,0,0.04);}
+  .wl-tab.active{
+    background:var(--purple);
+    color:#ffffff;
+  }
+  .wl-tab.overall-tab{color:var(--cyan);}
+  .wl-tab.overall-tab.active{
+    background:var(--cyan);
+    color:#ffffff;
+  }
+  .wl-banner{
+    display:none;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;
+    color:var(--purple);
+    background:rgba(124,58,237,0.08);
+    border:1px solid rgba(124,58,237,0.3);
+    border-radius:10px;
+    padding:8px 14px;
+    margin-bottom:10px;
+  }
+  .wl-banner.active{ display:block; }
+
   /* ---- Table ---- */
   .table-panel{
     background:var(--bg-panel);
@@ -156,7 +207,7 @@
   }
   @media (max-width:560px){.calc-grid{grid-template-columns:1fr;}}
   label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
-  input[type=number], select{
+  input[type=number], input[type=text], select{
     width:100%;
     background:var(--bg-panel-2);
     border:1px solid var(--line);
@@ -166,7 +217,7 @@
     font-family:'JetBrains Mono',monospace;
     font-size:14px;
   }
-  input[type=number]:focus, select:focus{outline:none;border-color:var(--cyan);}
+  input[type=number]:focus, input[type=text]:focus, select:focus{outline:none;border-color:var(--cyan);}
   .quickfill{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
   .qf-btn{
     font-family:'JetBrains Mono',monospace;
@@ -220,11 +271,12 @@
        style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin:8px 0 14px;display:none;border:1px solid var(--line);"
        onload="this.style.display='block';"
        onerror="this.style.display='none';">
-  <p class="event-name" id="eventName">載入活動資訊中…（會自動抓目前正在進行的活動）</p>
+  <p class="event-name" id="eventName">載入活動資訊中…</p>
 
   <div class="hero">
     <div class="top-row">
       <div class="hero-label">⏱ 距離活動結算</div>
+      <span id="checkpointPill" class="status-pill" style="display:none;">已結算 / 已過結算點</span>
       <span id="statusPill" class="status-pill">連線中…</span>
     </div>
     <div class="countdown" id="countdown">
@@ -237,12 +289,16 @@
   </div>
 
   <div class="section-title"><span class="num">01</span><h2>各名次即時分數與預測分數線</h2></div>
+  <p id="wlBanner" class="wl-banner">
+    🔗 這是 World Link 活動，下面可以切換「總榜」或各章節角色的排名／預測分數線
+  </p>
+  <div id="wlTabs" class="wl-tabs"></div>
   <div class="freshness">
     <span>資料獲取時間：<b id="fetchedAgo">—</b></span>
     <span>預測計算時間：<b id="calcAgo">—</b></span>
   </div>
   <p id="warmupWarning" class="result-note" style="display:none;color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;">
-    ⚠ 活動開始還不到 1 小時，時速資料還不穩定，這段時間的預測分數線僅供粗略參考，建議 1 小時後再回來看比較準確。
+    ⚠ 活動開始還不到 24 小時，剛開始會衝比較快，算出來的「均速」容易偏高，用它推估剩餘天數的預測分數線可能會偏高估。等時速資料累積滿 24 小時、開始用真實的近24h實測時速取代均速估算後，預測會準確許多，這段時間的數字請保守看待。
   </p>
   <p id="charStatsNote" class="result-note" style="display:none;"></p>
   <div class="table-panel">
@@ -262,7 +318,7 @@
       </tbody>
     </table>
   </div>
-  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，因為精彩片段（T200以上）官方資料沒有提供近1h／3h／24h時速，只能用這種方式估算，會比 T1～T100 的近24h實測時速更粗略，僅供參考。</p>
+  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近期實測)」的時速，是用 border_log 每15分鐘的紀錄，取「最新一筆」跟「約1小時前那一筆」的分數差算出來的近1小時時速，比均速準確，但取樣終究是「名次門檻」而非個別玩家，短時間排名洗牌時可能會有些微波動，會比 HiSekai 原生的近1h/3h/24h實測時速粗略一些，僅供參考。</p>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
@@ -308,10 +364,11 @@
       <div class="calc-grid">
         <div>
           <label>想查詢的玩家 ID</label>
-          <input type="text" id="lookupIdInput" placeholder="例：7013930982571285249">
+          <input type="text" id="lookupIdInput">
         </div>
-        <div style="display:flex;align-items:flex-end;">
-          <button class="refresh-btn" id="lookupIdBtn" style="margin-left:0;width:100%;">查詢</button>
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <button class="refresh-btn" id="lookupIdBtn" style="margin-left:0;flex:1;">查詢</button>
+          <button class="qf-btn" id="lookupIdLastBtn" type="button" style="display:none;white-space:nowrap;">用上次的 ID</button>
         </div>
       </div>
       <p class="result-note">只有前 100 名內的玩家才查得到詳細時速資料（近1h／3h／24h的次數、得分、時速、平均分），官方 border 端點（T100以外）沒有提供這些細節。</p>
@@ -333,8 +390,7 @@
 // ---- 精彩片段結算時間 ----
 // 每次抓到即時資料時會用當期 API 回傳的 aggregate_at（精彩片段結算時間點）更新這個值，
 // 所以同一份網頁換到下一期活動也能自動對到正確的結算時間，不用手動改。
-const FALLBACK_CHECKPOINT_UTC = "2026-07-21T12:59:59Z"; // 僅在完全連不上 API 時當備援（173期 aggregate_at）
-let CHECKPOINT_DATE = new Date(FALLBACK_CHECKPOINT_UTC);
+let CHECKPOINT_DATE = null; // 還沒抓到真實資料前先是 null，不要顯示寫死的舊日期
 
 let liveData = null;      // 成功取得的即時資料會存這（top100 原始物件）
 let currentRanks = [];    // 目前顯示中的名次清單（top100 + border 合併後）
@@ -365,17 +421,26 @@ function fmtNum(n){
 }
 
 function updateCountdown(){
+  const checkpointPill = document.getElementById('checkpointPill');
+  if(CHECKPOINT_DATE === null){
+    document.getElementById('cdD').textContent = '--';
+    document.getElementById('cdH').textContent = '--';
+    document.getElementById('cdM').textContent = '--';
+    document.getElementById('cdS').textContent = '--';
+    checkpointPill.style.display = 'none';
+    return 0; // 回傳0而不是null，避免後續乘法算出NaN；等真的資料進來就會是正確數字
+  }
   const now = new Date();
   let diff = CHECKPOINT_DATE - now;
-  const pill = document.getElementById('statusPill');
   if(diff <= 0){
     document.getElementById('cdD').textContent = '00';
     document.getElementById('cdH').textContent = '00';
     document.getElementById('cdM').textContent = '00';
     document.getElementById('cdS').textContent = '00';
-    pill.textContent = '已結算 / 已過結算點';
+    checkpointPill.style.display = 'inline-block';
     return 0;
   }
+  checkpointPill.style.display = 'none';
   const d = Math.floor(diff/86400000); diff -= d*86400000;
   const h = Math.floor(diff/3600000); diff -= h*3600000;
   const m = Math.floor(diff/60000); diff -= m*60000;
@@ -388,6 +453,10 @@ function updateCountdown(){
 }
 
 function renderCheckpointStr(){
+  if(CHECKPOINT_DATE === null){
+    document.getElementById('checkpointStr').textContent = '—';
+    return;
+  }
   const opts = { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
   document.getElementById('checkpointStr').textContent =
     new Intl.DateTimeFormat('zh-TW', opts).format(CHECKPOINT_DATE);
@@ -410,9 +479,11 @@ function buildRankTable(ranks, remainHours){
     }
     const gain = Math.max(0, r.speed * remainHours);
     const predicted = r.score + gain;
-    const speedLabel = r.isAverage
-      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
-      : `${fmtNum(r.speed)}/h`;
+    const speedLabel = r.isRecentLog
+      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近期實測)</span>`
+      : r.isAverage
+        ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
+        : `${fmtNum(r.speed)}/h`;
     const histAvg = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
       ? fmtNum(charStats.avgByRank[r.rank])
       : '<span class="dim">—</span>';
@@ -514,26 +585,99 @@ const FETCH_STRATEGIES = [
   { label: 'allorigins',       url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_URL) },
 ];
 
+// 幫 fetch 加上明確逾時，避免某個連線方式「卡住不動」拖累後面所有嘗試
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { ...options, signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function tryFetchLive(){
   for(const strat of FETCH_STRATEGIES){
     try{
       document.getElementById('dataNote').textContent = `正在嘗試連線（${strat.label}）…`;
-      const res = await fetch(strat.url, { cache: 'no-store' });
+      const res = await fetchWithTimeout(strat.url, { cache: 'no-store' }, 5000);
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if(!data || !Array.isArray(data.player_top_100_rankings)) throw new Error('資料格式異常');
       return { data, via: strat.label };
     }catch(err){
-      console.warn(`[${strat.label}] 連線失敗`, err);
+      console.warn(`[${strat.label}] 連線失敗（${err.name === 'AbortError' ? '逾時5秒' : err.message}）`);
     }
   }
+
+  // HiSekai 那幾種方式都失敗了，最後試一個完全獨立的資料源（sekai.best，不同團隊維運，跟HiSekai無關）
+  document.getElementById('dataNote').textContent = '正在嘗試連線（sekai.best，獨立備援）…';
+  const sekaiBestData = await trySekaiBestFetch();
+  if(sekaiBestData) return { data: sekaiBestData, via: 'sekai.best（獨立資料源）' };
+
   return null;
+}
+
+// sekai.best：跟 HiSekai 完全獨立的另一個社群資料源，用來組成跟 HiSekai 格式一致的物件，
+// 這樣後面 loadLive() 的處理邏輯不用另外寫一套
+async function trySekaiBestFetch(){
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=sekaibest`, { cache: 'no-store' }, 8000);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const combined = await res.json();
+    const info = combined.info || {};
+    const rankData = combined.rank || {};
+    const rankings = (rankData.data && rankData.data.eventRankings) || [];
+    if(!rankings.length) throw new Error('沒有排名資料');
+
+    const ev = info.eventJson || {};
+    return {
+      id: ev.id,
+      name: ev.name,
+      start_at: ev.startAt ? new Date(ev.startAt).toISOString() : null,
+      closed_at: ev.closedAt ? new Date(ev.closedAt).toISOString() : null,
+      aggregate_at: ev.aggregateAt ? new Date(ev.aggregateAt).toISOString() : null,
+      player_top_100_rankings: rankings
+        .filter(r => Number(r.rank) <= 100)
+        .map(r => ({ rank: Number(r.rank), score: Number(r.score), name: r.userName, userId: r.userId })),
+      player_border_rankings: rankings
+        .filter(r => Number(r.rank) > 100)
+        .map(r => ({ rank: Number(r.rank), score: Number(r.score) })),
+    };
+  }catch(err){
+    console.warn('[sekai.best] 連線失敗', err);
+    return null;
+  }
+}
+
+// 用 border_log 累積的紀錄算出「近期實測時速」，覆蓋掉均速估算（isAverage:true 的名次）
+// 失敗就靜靜跳過，維持原本的均速估算，不影響主流程
+async function applyRecentSpeeds(ranks, eventId){
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=recent_speed`, { cache: 'no-store' }, 5000);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const result = await res.json();
+    if(result.error || Number(result.eventId) !== Number(eventId) || !result.speeds) return ranks;
+
+    return ranks.map(r => {
+      const measured = result.speeds[r.rank];
+      if(measured === undefined || measured === null) return r;
+      // 只覆蓋掉本來就是估算值的名次；如果本來就有 HiSekai 原生的近24h實測時速，維持原樣不覆蓋
+      if(r.isAverage){
+        return { ...r, speed: measured, isAverage: false, isRecentLog: true };
+      }
+      return r;
+    });
+  }catch(err){
+    console.warn('近期實測時速取得失敗，維持均速估算', err);
+    return ranks;
+  }
 }
 
 // 額外抓 border 端點（T1000/2000/5000...），失敗就靜靜跳過，不影響主表
 async function tryFetchBorder(){
   try{
-    const res = await fetch(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' });
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' }, 5000);
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     return Array.isArray(data.player_border_rankings) ? data.player_border_rankings : [];
@@ -543,17 +687,94 @@ async function tryFetchBorder(){
   }
 }
 
+// ---- 離線備援：連不上即時 API 時，依序嘗試 border_log(Sheet，大家共用、較新) → 本機快取(localStorage，只有自己看得到) ----
+const CACHE_KEY = 'pjsk_last_snapshot';
+
+function safeGetCache(){
+  try{ const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function safeSetCache(snapshot){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot)); }catch(e){ /* 略過 */ }
+}
+
+function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
+  const sourceLabel = source === 'borderlog' ? 'border_log' : '本機瀏覽器快取';
+  document.getElementById('eventName').textContent = `第 ${eventId} 期・${eventName}（非即時資料・來源：${sourceLabel}）`;
+  renderAll(ranks, false); // isLive=false 會顯示琥珀色的「備援快照資料」狀態徽章
+  document.getElementById('warmupWarning').style.display = 'none';
+  const note = document.createElement('p');
+  note.id = 'staleCacheNote';
+  note.className = 'result-note';
+  note.style.cssText = 'color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;margin-bottom:12px;';
+  const sourceFullLabel = source === 'borderlog' ? 'border_log（Sheet 共用備援）' : '本機瀏覽器快取（只有你看得到）';
+  note.textContent = `⚠ 目前連不上即時 API，顯示的是非即時資料，來源：${sourceFullLabel}，擷取於 ${relTime(fetchedAtDate)}，可能已過期，僅供參考。背景會持續重試，連上後會自動換成最新資料。`;
+  const existing = document.getElementById('staleCacheNote');
+  if(existing) existing.remove();
+  document.getElementById('warmupWarning').insertAdjacentElement('afterend', note);
+
+  // 歷史平均查的是歷史資料庫，跟現在連不連得上即時 API 無關，備援模式一樣能正常顯示
+  loadCharacterStats(eventId);
+}
+
+async function tryBorderLogFallback(){
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=latest`, { cache: 'no-store' }, 5000);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(data.error || !Array.isArray(data.rankings) || !data.rankings.length) return false;
+    const ranks = data.rankings
+      .map(r => ({ rank: r.rank, score: r.score, speed: r.speed || 0 }))
+      .sort((a,b) => a.rank - b.rank);
+    renderFallback('borderlog', data.id, data.name, ranks, new Date(data.fetchedAt));
+    return true;
+  }catch(err){
+    console.warn('border_log 備援載入失敗', err);
+    return false;
+  }
+}
+
+function showLocalCacheFallback(){
+  const cache = safeGetCache();
+  if(!cache || !cache.ranks || !cache.ranks.length) return false;
+  if(cache.checkpointISO){
+    CHECKPOINT_DATE = new Date(cache.checkpointISO);
+    renderCheckpointStr();
+  }
+  renderFallback('localcache', cache.eventId, cache.eventName, cache.ranks, new Date(cache.fetchedAt));
+  return true;
+}
+
+async function showFallbackIfAvailable(){
+  const ok = await tryBorderLogFallback();
+  if(ok) return true;
+  return showLocalCacheFallback();
+}
+
+function clearStaleCacheNote(){
+  const el = document.getElementById('staleCacheNote');
+  if(el) el.remove();
+}
+
 async function loadLive(){
   document.getElementById('dataNote').textContent = '正在嘗試連線 Hi Sekai API…';
   let result = await tryFetchLive();
   let attempt = 1;
+  let shownFallback = false;
   while(!result){
     attempt++;
+    // 退避機制：重試間隔隨失敗次數拉長（3秒起跳，每次+5秒，上限30秒），
+    // 避免長時間掛掉時對 Apps Script／HiSekai／sekai.best 造成不必要的高頻請求
+    const delaySec = Math.min(3 + (attempt - 2) * 5, 30);
     document.getElementById('dataNote').textContent =
-      `連線未成功，可能是 Apps Script 剛冷啟動，3 秒後自動重試（第 ${attempt} 次）…`;
-    await new Promise(r => setTimeout(r, 3000));
+      `連線未成功，可能是 Apps Script 剛冷啟動或 API 暫時無法使用，${delaySec} 秒後自動重試（第 ${attempt} 次）…`;
+    // 連續失敗幾次之後，先顯示非即時的備援資料，總比空白畫面好
+    if(!shownFallback && attempt >= 3){
+      shownFallback = await showFallbackIfAvailable();
+    }
+    await new Promise(r => setTimeout(r, delaySec * 1000));
     result = await tryFetchLive();
   }
+  clearStaleCacheNote();
   {
     const data = result.data;
     liveData = data;
@@ -575,10 +796,11 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     fullTop100Raw = (data.player_top_100_rankings || [])
       .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
-    const borderRaw = await tryFetchBorder();
-
-    document.getElementById('warmupWarning').style.display =
-      (hoursSinceStart !== null && hoursSinceStart < 1) ? 'block' : 'none';
+    // 如果這次拿到的資料裡已經附帶 border 資料（例如 sekai.best，一次給全部），直接用，
+    // 不要另外去問 HiSekai（HiSekai 掛掉時，另外問只會拿到空的，把已經有的資料蓋掉）
+    const borderRaw = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
+      ? data.player_border_rankings
+      : await tryFetchBorder();
 
     const foundBorderRanks = borderRaw
       .filter(p => WANTED_BORDER_RANKS.includes(p.rank))
@@ -594,14 +816,139 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
       .filter(r => !foundSet.has(r))
       .map(r => ({ rank: r, score: null, speed: null, available: false }));
     const borderRanks = [...foundBorderRanks, ...missingBorderRanks];
-    const ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
+    let ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
 
+    // 用 border_log 累積的紀錄算「近期實測時速」，覆蓋掉不夠準的「開始至今平均」估算
+    ranks = await applyRecentSpeeds(ranks, data.id);
+
+    wlOverallRanks = ranks; // 記住「總榜」這份資料，World Link 分頁籤切回總榜時要用
     renderAll(ranks, true);
+    safeSetCache({
+      eventId: data.id,
+      eventName: data.name,
+      checkpointISO: data.aggregate_at || null,
+      ranks: ranks,
+      fetchedAt: new Date().toISOString(),
+    });
     const missingLabel = missingBorderRanks.length ? `，T${missingBorderRanks.map(r=>r.rank).join('／T')} 目前無官方精彩片段資料` : '';
     document.getElementById('dataNote').textContent =
       `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
 
-    loadCharacterStats(data.id);
+    setupWorldLink(data);
+
+    // 「開局衝刺偏高」這套邏輯是從一般活動觀察來的，WL 章節節奏完全不同（前24h本來就是主戰場，
+    // 不是短暫衝刺），而且我們還沒有 WL 的歷史資料可以驗證，先不要套用這個警示，避免誤導
+    const isWorldLink = wlChapters.length > 0;
+    document.getElementById('warmupWarning').style.display =
+      (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
+
+    if(activeWlTab === 'overall') loadCharacterStats(data.id);
+  }
+}
+
+// ===== World Link 章節分頁籤（框架先用假資料測排版，等真的遇到WL活動再換成真實API欄位）=====
+
+// ⚠ 開發測試開關：true 時會用假資料模擬 World Link 活動，方便先測排版。
+// 真的遇到 World Link 活動時，把這個改成 false，並確認下面 setupWorldLink() 裡
+// 讀取 data.chapters 的欄位名稱跟真實 API 回傳格式一致（目前是用文件推測的欄位名）。
+const WL_MOCK_TEST = false;
+
+// 角色編號對照表（依你提供的 world_link 序號整理）
+const CHARACTER_MAP = {
+  1:'星乃一歌', 2:'天馬咲希', 3:'望月穗波', 4:'日野森志步', 5:'花里實乃理',
+  6:'桐谷遙', 7:'桃井愛莉', 8:'日野森雫', 9:'小豆澤心羽', 10:'白石杏',
+  11:'東雲彰人', 12:'青柳冬彌', 13:'天馬司', 14:'鳳笑夢', 15:'草薙寧寧',
+  16:'神代類', 17:'宵崎奏', 18:'朝比奈真冬', 19:'東雲繪名', 20:'曉山瑞希',
+  21:'初音未來', 22:'鏡音鈴', 23:'鏡音連', 24:'巡音流歌', 25:'MEIKO', 26:'KAITO',
+};
+
+let wlOverallRanks = [];   // 總榜資料（其實就是一般 marathon 那套邏輯算出來的 ranks）
+let wlChapters = [];       // 各章節資料：[{ id, name, ranks }]
+let activeWlTab = 'overall';
+
+function buildMockChapters(){
+  // 假資料：模擬 4 個章節角色，分數用總榜的等比縮小製造出差異，純粹測排版用
+  const mockIds = [12, 11, 9, 10]; // 青柳冬彌／東雲彰人／小豆澤心羽／白石杏，順序模擬「本期章節順序」
+  return mockIds.map((id, idx) => ({
+    character: id,
+    rankings: MILESTONE_RANKS.filter(r => r <= 100).map(r => ({
+      rank: r,
+      score: Math.round((100 - r) * 50000 * (1 - idx * 0.15) + 20000),
+      last_24h_stats: { speed: Math.round((100 - r) * 800 * (1 - idx * 0.1)) },
+    })),
+    borderRankings: MILESTONE_RANKS.filter(r => r > 100).map(r => ({
+      rank: r,
+      score: Math.round(3000000 / Math.sqrt(r) * (1 - idx * 0.15)),
+    })),
+  }));
+}
+
+function buildChapterRanks(chapter){
+  // 章節內的資料結構跟一般活動的 top100/border 概念類似，這裡沿用同一套組裝邏輯
+  const top = (chapter.rankings || []).map(p => ({
+    rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0,
+  }));
+  const border = (chapter.borderRankings || []).map(p => ({
+    rank: p.rank, score: p.score, speed: 0, isAverage: true, // 章節榜目前假設沒有時速細節，先用0，實測後再調整
+  }));
+  return [...top, ...border].sort((a,b) => a.rank - b.rank);
+}
+
+function setupWorldLink(data){
+  const chapters = WL_MOCK_TEST ? buildMockChapters() : (data.chapters || []);
+  const banner = document.getElementById('wlBanner');
+  const tabsWrap = document.getElementById('wlTabs');
+
+  if(!chapters.length){
+    banner.classList.remove('active');
+    tabsWrap.classList.remove('active');
+    wlChapters = [];
+    return;
+  }
+
+  banner.classList.add('active');
+  tabsWrap.classList.add('active');
+
+  wlChapters = chapters.map(ch => ({
+    id: ch.character,
+    name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
+    ranks: buildChapterRanks(ch),
+  }));
+
+  tabsWrap.innerHTML = '';
+  const overallBtn = document.createElement('button');
+  overallBtn.className = 'wl-tab overall-tab' + (activeWlTab === 'overall' ? ' active' : '');
+  overallBtn.textContent = '總榜';
+  overallBtn.onclick = () => switchWlTab('overall');
+  tabsWrap.appendChild(overallBtn);
+
+  wlChapters.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'wl-tab' + (activeWlTab === String(ch.id) ? ' active' : '');
+    btn.textContent = ch.name;
+    btn.onclick = () => switchWlTab(String(ch.id));
+    tabsWrap.appendChild(btn);
+  });
+}
+
+function switchWlTab(key){
+  activeWlTab = key;
+  document.querySelectorAll('.wl-tab').forEach(btn=>{
+    const isOverall = btn.classList.contains('overall-tab');
+    btn.classList.toggle('active', (isOverall && key === 'overall') || (!isOverall && btn.textContent === (CHARACTER_MAP[key] || '')));
+  });
+
+  if(key === 'overall'){
+    renderAll(wlOverallRanks, true);
+    if(liveData) loadCharacterStats(liveData.id);
+  }else{
+    const chapter = wlChapters.find(c => String(c.id) === key);
+    if(!chapter) return;
+    renderAll(chapter.ranks, true);
+    // TODO：章節榜的「同角色歷史平均」要接 wl_historical_scores，目前先清空避免顯示錯誤來源的數字
+    charStats = null;
+    document.getElementById('charStatsNote').style.display = 'none';
+    if(currentRanks.length) buildRankTable(currentRanks, updateCountdown());
   }
 }
 
@@ -640,7 +987,8 @@ setInterval(()=>{
   // 每次倒數更新時，用目前已載入的完整名次清單重算預測，維持即時感，不重新打 API
   // 如果還在重試連線、尚未有任何資料，就先不畫表格
   if(currentRanks.length){
-    buildRankTable(currentRanks, (CHECKPOINT_DATE - new Date())/3600000);
+    const remainHours = CHECKPOINT_DATE ? (CHECKPOINT_DATE - new Date())/3600000 : 0;
+    buildRankTable(currentRanks, remainHours);
   }
   calcCustom();
 }, 1000);
@@ -715,9 +1063,59 @@ function lookupRank(){
   const predicted = entry.score + gain;
   const tag = isInterpolated
     ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
-    : (entry.isAverage ? '<span class="dim" style="font-size:11px;">（均速估算）</span>' : '');
+    : entry.isRecentLog
+      ? '<span class="dim" style="font-size:11px;">（近期實測時速）</span>'
+      : (entry.isAverage ? '<span class="dim" style="font-size:11px;">（均速估算）</span>' : '');
 
-  resultDiv.innerHTML = `
+  let histAvgRaw = null;
+  let histIsInterpolated = false;
+  if(charStats && charStats.avgByRank){
+    if(charStats.avgByRank[rank] !== undefined){
+      histAvgRaw = charStats.avgByRank[rank];
+    }else{
+      const histPoints = Object.keys(charStats.avgByRank)
+        .map(k => ({ rank: Number(k), score: charStats.avgByRank[k] }))
+        .sort((a,b) => a.rank - b.rank);
+      const lower = [...histPoints].reverse().find(p => p.rank < rank);
+      const upper = histPoints.find(p => p.rank > rank);
+      if(lower && upper){
+        const lr = Math.log(lower.rank), ur = Math.log(upper.rank), tr = Math.log(rank);
+        const ratio = (tr - lr) / (ur - lr);
+        const ls = Math.log(Math.max(lower.score,1)), us = Math.log(Math.max(upper.score,1));
+        histAvgRaw = Math.exp(ls + (us - ls) * ratio);
+        histIsInterpolated = true;
+      }
+      // 只有兩側都有資料時才做內插；只有單邊資料代表超出追蹤範圍（例如T1小於最小里程碑T10），
+      // 直接借用單邊數字會失真，寧可不顯示，不要生一個誤導的假數字
+    }
+  }
+  const charLabel = charStats ? `（${charStats.character}：過去 ${charStats.sampleCount} 次）` : '';
+
+  // T1~T100 才有完整玩家資料（名字、1h/3h/24h 細節），T100 以外官方沒有提供
+  const fullPlayer = rank <= 100 ? fullTop100PlayersRaw.find(p => p.rank === rank) : null;
+
+  let html = '';
+
+  if(fullPlayer){
+    html += `
+      <div style="margin-top:14px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div>
+            <span class="rank-tag" style="font-size:16px;">T${fullPlayer.rank}</span>
+            <span style="margin-left:10px;font-weight:600;">${fullPlayer.name}</span>
+          </div>
+          <div class="mono" style="font-size:18px;font-weight:700;">${fmtNum(fullPlayer.score)}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+          ${statBlock('過去 1 小時', fullPlayer.last_1h_stats)}
+          ${statBlock('過去 3 小時', fullPlayer.last_3h_stats)}
+          ${statBlock('過去 24 小時', fullPlayer.last_24h_stats)}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
     <div class="result" style="margin-top:14px;">
       <div>
         <div class="result-label">T${rank} 預測分數線 ${tag}</div>
@@ -726,6 +1124,14 @@ function lookupRank(){
       <div class="result-label">目前約 ${fmtNum(entry.score)}　時速約 ${fmtNum(entry.speed)}/h</div>
     </div>
   `;
+
+  html += `
+    <div class="freshness" style="margin-top:10px;">
+      <span>同角色歷史平均：<b>${histAvgRaw !== null ? `${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}${charLabel ? '　' + charLabel : ''}` : '—（尚無歷史比對資料）'}</b></span>
+    </div>
+  `;
+
+  resultDiv.innerHTML = html;
 }
 
 document.getElementById('lookupBtn').addEventListener('click', lookupRank);
@@ -738,13 +1144,42 @@ function statBlock(title, stats){
   return `
     <div style="background:var(--bg-panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;">
       <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:10px;text-align:center;">${title}</div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">次數 (Plays)</span><span class="mono">${fmtNum(stats.count)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">得分 (Score)</span><span class="mono">${fmtNum(stats.score)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">時速 (Speed)</span><span class="mono">${fmtNum(stats.speed)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span class="dim">平均分 (Avg)</span><span class="mono">${fmtNum(stats.average)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">次數</span><span class="mono">${fmtNum(stats.count)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">得分</span><span class="mono">${fmtNum(stats.score)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;"><span class="dim">時速</span><span class="mono">${fmtNum(stats.speed)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span class="dim">平均分</span><span class="mono">${fmtNum(stats.average)}</span></div>
     </div>
   `;
 }
+
+// ---- 記住上次查詢過的玩家 ID（用 localStorage；在 Claude 預覽環境可能無效，部署到實際網站後才會生效）----
+const LAST_ID_KEY = 'pjsk_last_lookup_id';
+
+function safeGetLastId(){
+  try{ return localStorage.getItem(LAST_ID_KEY); }catch(e){ return null; }
+}
+function safeSetLastId(id){
+  try{ localStorage.setItem(LAST_ID_KEY, id); }catch(e){ /* 略過，可能是隱私模式或環境限制 */ }
+}
+
+function refreshLastIdButton(){
+  const btn = document.getElementById('lookupIdLastBtn');
+  const last = safeGetLastId();
+  if(last){
+    btn.style.display = 'inline-block';
+    btn.textContent = `用上次的 ID（${last.length > 10 ? last.slice(0,6) + '…' : last}）`;
+  }else{
+    btn.style.display = 'none';
+  }
+}
+
+document.getElementById('lookupIdLastBtn').addEventListener('click', () => {
+  const last = safeGetLastId();
+  if(last){
+    document.getElementById('lookupIdInput').value = last;
+    lookupPlayerId();
+  }
+});
 
 function lookupPlayerId(){
   const input = document.getElementById('lookupIdInput');
@@ -756,9 +1191,12 @@ function lookupPlayerId(){
     return;
   }
 
+  const inputNum = Number(id);
   const player = fullTop100PlayersRaw.find(p => {
-    const pid = p.last_player_info && p.last_player_info.profile && p.last_player_info.profile.id;
-    return pid !== undefined && String(pid) === id;
+    const hisekaiId = p.last_player_info && p.last_player_info.profile && p.last_player_info.profile.id;
+    const sekaiBestId = p.userId;
+    const pid = hisekaiId !== undefined ? hisekaiId : sekaiBestId;
+    return pid !== undefined && Number(pid) === inputNum;
   });
 
   if(!player){
@@ -770,6 +1208,12 @@ function lookupPlayerId(){
     return;
   }
 
+  // 查到就記住這個 ID，下次打開頁面可以一鍵帶入
+  safeSetLastId(id);
+  refreshLastIdButton();
+
+  const hasDetailStats = !!(player.last_1h_stats || player.last_3h_stats || player.last_24h_stats);
+
   resultDiv.innerHTML = `
     <div style="margin-top:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -779,14 +1223,20 @@ function lookupPlayerId(){
         </div>
         <div class="mono" style="font-size:18px;font-weight:700;">${fmtNum(player.score)}</div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-        ${statBlock('過去 1 小時', player.last_1h_stats)}
-        ${statBlock('過去 3 小時', player.last_3h_stats)}
-        ${statBlock('過去 24 小時', player.last_24h_stats)}
-      </div>
+      ${hasDetailStats ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+          ${statBlock('過去 1 小時', player.last_1h_stats)}
+          ${statBlock('過去 3 小時', player.last_3h_stats)}
+          ${statBlock('過去 24 小時', player.last_24h_stats)}
+        </div>
+      ` : `
+        <p class="result-note" style="color:var(--text-dim);">目前資料來源沒有提供時速細節（1h/3h/24h），只有名次跟分數。</p>
+      `}
     </div>
   `;
 }
+
+refreshLastIdButton();
 
 document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId);
 document.getElementById('lookupIdInput').addEventListener('keydown', e => {
