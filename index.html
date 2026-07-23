@@ -26,6 +26,10 @@
     height: calc(100vh - 120px);
     min-height: calc(100vh - 120px);
   }
+  /* 分數線預測改成照實際內容高度顯示，不強制填滿視窗（內容比較短時不留一大片空白） */
+  #frame4{
+    min-height: 0;
+  }
 </style>
 </head>
 <body>
@@ -101,8 +105,13 @@
     const frames = [document.getElementById('frame1'), document.getElementById('frame2'), document.getElementById('frame3'), document.getElementById('frame4')];
     frames.forEach(f=>{
       if(f && f.contentWindow === e.source){
-        const minH = Math.max(window.innerHeight - 120, 0);
-        f.style.height = Math.max(e.data.height + 20, minH) + 'px';
+        if(f.id === 'frame4'){
+          // 分數線預測不強制填滿視窗，照實際內容高度顯示就好
+          f.style.height = (e.data.height + 20) + 'px';
+        }else{
+          const minH = Math.max(window.innerHeight - 120, 0);
+          f.style.height = Math.max(e.data.height + 20, minH) + 'px';
+        }
       }
     });
   });
