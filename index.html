@@ -89,7 +89,8 @@
     fitFrame(document.getElementById('frame1'));
     fitFrame(document.getElementById('frame2'));
     fitFrame(document.getElementById('frame3'));
-    fitFrame(document.getElementById('frame4'));
+    // frame4（分數線預測）改用子頁面主動回報高度（postMessage），這裡不要碰，
+    // 避免同源時舊的偵測機制跟新機制互相搶著設定高度，導致高度一直跳動
   }
   window.addEventListener('load', ()=>{
     autoResize();
@@ -105,13 +106,12 @@
     const frames = [document.getElementById('frame1'), document.getElementById('frame2'), document.getElementById('frame3'), document.getElementById('frame4')];
     frames.forEach(f=>{
       if(f && f.contentWindow === e.source){
-        if(f.id === 'frame4'){
-          // 分數線預測不強制填滿視窗，照實際內容高度顯示就好
-          f.style.height = (e.data.height + 20) + 'px';
-        }else{
-          const minH = Math.max(window.innerHeight - 120, 0);
-          f.style.height = Math.max(e.data.height + 20, minH) + 'px';
-        }
+        const newHeight = f.id === 'frame4'
+          ? (e.data.height + 20)
+          : Math.max(e.data.height + 20, Math.max(window.innerHeight - 120, 0));
+        const currentHeight = parseFloat(f.style.height) || 0;
+        if(Math.abs(newHeight - currentHeight) < 5) return; // 差距太小就不重複設定，避免來回跳動
+        f.style.height = newHeight + 'px';
       }
     });
   });
