@@ -318,7 +318,7 @@
       </tbody>
     </table>
   </div>
-  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近期實測)」的時速，是用 border_log 每15分鐘的紀錄，取「最新一筆」跟「約1小時前那一筆」的分數差算出來的近1小時時速，比均速準確，但取樣終究是「名次門檻」而非個別玩家，短時間排名洗牌時可能會有些微波動，會比 HiSekai 原生的近1h/3h/24h實測時速粗略一些，僅供參考。</p>
+  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，資料累積滿24小時後會自動改用「近24h」窗口比較（更貼近表格標題），不到24小時則先用「近1h」頂著。取樣終究是「名次門檻」而非個別玩家，短時間排名洗牌時可能會有些微波動，會比 HiSekai 原生的近1h/3h/24h實測時速粗略一些，僅供參考。</p>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
@@ -480,7 +480,7 @@ function buildRankTable(ranks, remainHours){
     const gain = Math.max(0, r.speed * remainHours);
     const predicted = r.score + gain;
     const speedLabel = r.isRecentLog
-      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近期實測)</span>`
+      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
       : r.isAverage
         ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
         : `${fmtNum(r.speed)}/h`;
@@ -664,7 +664,7 @@ async function applyRecentSpeeds(ranks, eventId){
       if(measured === undefined || measured === null) return r;
       // 只覆蓋掉本來就是估算值的名次；如果本來就有 HiSekai 原生的近24h實測時速，維持原樣不覆蓋
       if(r.isAverage){
-        return { ...r, speed: measured, isAverage: false, isRecentLog: true };
+        return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours };
       }
       return r;
     });
@@ -1066,7 +1066,7 @@ function lookupRank(){
   const tag = isInterpolated
     ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
     : entry.isRecentLog
-      ? '<span class="dim" style="font-size:11px;">（近期實測時速）</span>'
+      ? `<span class="dim" style="font-size:11px;">（近${entry.recentWindowHours >= 20 ? '24' : Math.round(entry.recentWindowHours)}h實測時速）</span>`
       : (entry.isAverage ? '<span class="dim" style="font-size:11px;">（均速估算）</span>' : '');
 
   let histAvgRaw = null;
