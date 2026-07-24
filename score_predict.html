@@ -159,6 +159,42 @@
   }
   .wl-banner.active{ display:block; }
 
+  /* ---- 欄位精簡顯示（手機預設開啟，隱藏次要欄位） ---- */
+  .table-panel table.compact th:nth-child(3),
+  .table-panel table.compact td:nth-child(3),
+  .table-panel table.compact th:nth-child(4),
+  .table-panel table.compact td:nth-child(4),
+  .table-panel table.compact th:nth-child(6),
+  .table-panel table.compact td:nth-child(6){
+    display:none;
+  }
+  .table-panel table.compact{
+    min-width:0;
+  }
+  .table-panel table.compact th:nth-child(2),
+  .table-panel table.compact td:nth-child(2){
+    width:45%;
+  }
+  .table-panel table.compact th:nth-child(5),
+  .table-panel table.compact td:nth-child(5){
+    width:45%;
+  }
+  .col-toggle-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    padding:6px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    margin-bottom:10px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
   /* ---- Table ---- */
   .table-panel{
     background:var(--bg-panel);
@@ -267,7 +303,7 @@
 <div class="wrap">
 
   <h1>分數線預測</h1>
-  <img id="eventBanner" src="assets/event_banner.jpg" alt="活動橫幅"
+  <img id="eventBanner" src="assest/event_banner.jpg" alt="活動橫幅"
        style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin:8px 0 14px;display:none;border:1px solid var(--line);"
        onload="this.style.display='block';"
        onerror="this.style.display='none';">
@@ -301,8 +337,12 @@
     ⚠ 活動開始還不到 24 小時，剛開始會衝比較快，算出來的「均速」容易偏高，用它推估剩餘天數的預測分數線可能會偏高估。等時速資料累積滿 24 小時、開始用真實的近24h實測時速取代均速估算後，預測會準確許多，這段時間的數字請保守看待。
   </p>
   <p id="charStatsNote" class="result-note" style="display:none;"></p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <button id="colToggleBtn" class="col-toggle-btn" type="button">☰ 精簡顯示</button>
+    <button id="shareImageBtn" class="col-toggle-btn" type="button">📷 生成分享圖片</button>
+  </div>
   <div class="table-panel">
-    <table>
+    <table id="rankTable">
       <thead>
         <tr>
           <th>名次</th>
@@ -979,6 +1019,163 @@ async function loadCharacterStats(eventId){
 document.getElementById('refreshBtn').addEventListener('click', loadLive);
 document.getElementById('curScore').addEventListener('input', calcCustom);
 document.getElementById('curSpeed').addEventListener('input', calcCustom);
+
+// ---- 欄位精簡顯示：手機(寬度<640px)預設關閉次要欄位，電腦預設全部顯示 ----
+function updateColToggleLabel(isCompact){
+  document.getElementById('colToggleBtn').textContent = isCompact ? '☰ 精簡顯示' : '☰ 完整顯示';
+}
+function setCompactTable(isCompact){
+  document.getElementById('rankTable').classList.toggle('compact', isCompact);
+  updateColToggleLabel(isCompact);
+}
+setCompactTable(window.innerWidth < 640);
+document.getElementById('colToggleBtn').addEventListener('click', () => {
+  const isCompact = document.getElementById('rankTable').classList.contains('compact');
+  setCompactTable(!isCompact);
+});
+
+// ---- 生成分享圖片：banner + 活動標題 + 各里程碑目前分數/預測分數線，畫在Canvas上輸出成PNG ----
+async function generateShareImage(){
+  const btn = document.getElementById('shareImageBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '產生中…';
+  try{
+    const ranks = currentRanks.filter(r => r.available !== false && r.score !== null);
+    if(!ranks.length){
+      alert('目前還沒有資料可以生成圖片，請等資料載入完成後再試。');
+      return;
+    }
+
+    const width = 480;
+    const rowHeight = 38;
+    const bannerImg = document.getElementById('eventBanner');
+    const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
+    const bannerHeight = hasBanner ? 160 : 0;
+    const headerHeight = bannerHeight + 110;
+    const tableHeaderHeight = 40;
+    const height = headerHeight + tableHeaderHeight + ranks.length * rowHeight + 30;
+
+    const canvas = document.createElement('canvas');
+    const scale = 2; // 輸出兩倍解析度，畫面比較清晰
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // 背景
+    ctx.fillStyle = '#f6f7fb';
+    ctx.fillRect(0, 0, width, height);
+
+    let y = 0;
+
+    // Banner（如果有載入成功的話，等比裁切鋪滿寬度）
+    if(hasBanner){
+      const bh = bannerHeight;
+      const imgScale = Math.max(width / bannerImg.naturalWidth, bh / bannerImg.naturalHeight);
+      const dw = bannerImg.naturalWidth * imgScale;
+      const dh = bannerImg.naturalHeight * imgScale;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, bh);
+      ctx.clip();
+      ctx.drawImage(bannerImg, (width - dw) / 2, (bh - dh) / 2, dw, dh);
+      ctx.restore();
+      y = bh + 20;
+    }else{
+      y = 20;
+    }
+
+    // 活動標題
+    ctx.fillStyle = '#1f2430';
+    ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'left';
+    const titleText = document.getElementById('eventName').textContent.trim();
+    ctx.fillText(titleText, 20, y + 22);
+    y += 42;
+
+    // 結算時間 + 距離結算剩餘時間
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px monospace';
+    ctx.fillText(`結算時間：${document.getElementById('checkpointStr').textContent}`, 20, y);
+    y += 18;
+
+    let remainLabel = '—';
+    if(CHECKPOINT_DATE){
+      const diffMs = CHECKPOINT_DATE - new Date();
+      if(diffMs <= 0){
+        remainLabel = '已結算 / 已過結算點';
+      }else{
+        const d = Math.floor(diffMs / 86400000);
+        const h = Math.floor((diffMs % 86400000) / 3600000);
+        const m = Math.floor((diffMs % 3600000) / 60000);
+        remainLabel = `${d}天 ${h}時 ${m}分`;
+      }
+    }
+    ctx.fillText(`距離活動結算：${remainLabel}`, 20, y);
+    y += 22;
+
+    // 表格分隔線 + 表頭
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    y += 24;
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'left';
+    ctx.fillText('名次', 20, y);
+    ctx.textAlign = 'right';
+    ctx.fillText('目前分數', width * 0.55, y);
+    ctx.fillText('預測分數線', width - 20, y);
+    y += 12;
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+
+    const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
+    ranks.forEach((r, i) => {
+      const rowTop = y + i * rowHeight;
+      const rowY = rowTop + 24;
+      if(i % 2 === 0){
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, rowTop, width, rowHeight);
+      }
+      const gain = Math.max(0, r.speed * remainHours);
+      const predicted = r.score + gain;
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillStyle = '#4f46e5';
+      ctx.fillText('T' + r.rank, 20, rowY);
+      ctx.textAlign = 'right';
+      ctx.font = '13px monospace';
+      ctx.fillStyle = '#1f2430';
+      ctx.fillText(fmtNum(r.score), width * 0.55, rowY);
+      ctx.fillStyle = '#db2777';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText(fmtNum(predicted), width - 20, rowY);
+    });
+
+    // 浮水印/來源標示
+    ctx.textAlign = 'left';
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `分數線預測_${new Date().toISOString().slice(0,10)}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    });
+  }catch(err){
+    console.error('生成圖片失敗', err);
+    alert('生成圖片失敗，請稍後再試。');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+document.getElementById('shareImageBtn').addEventListener('click', generateShareImage);
 
 renderCheckpointStr();
 setInterval(()=>{
