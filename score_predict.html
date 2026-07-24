@@ -358,7 +358,11 @@
       </tbody>
     </table>
   </div>
-  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史平均」，預測分數線會用信心度混合「即時外推」跟「歷史平均」（信心度越低，越參考歷史平均；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史平均。</p>
+  <div class="result-note">
+    <p style="margin:0 0 8px;">1. 標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。</p>
+    <p style="margin:0 0 8px;">2. 這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</p>
+    <p style="margin:0;">3. 標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史平均」，預測分數線會用信心度混合「即時外推」跟「歷史平均」（信心度越低，越參考歷史平均；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史平均。</p>
+  </div>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
@@ -532,7 +536,7 @@ function buildRankTable(ranks, remainHours){
     }
     const gain = Math.max(0, predicted - r.score);
     const confidenceTag = confidence < 0.999
-      ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%${histAvgNum !== null ? '，已混合歷史平均' : ''})</span>`
+      ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>`
       : '';
     const speedLabel = r.isRecentLog
       ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
@@ -1335,7 +1339,7 @@ function lookupRank(){
   }
   const gain = Math.max(0, predicted - entry.score);
   const confidenceNote = confidence < 0.999
-    ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%${histAvgRaw !== null ? '，已混合歷史平均' : ''}）</span>`
+    ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%）</span>`
     : '';
   const tag = isInterpolated
     ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
