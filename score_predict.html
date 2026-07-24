@@ -1055,7 +1055,23 @@ async function loadCharacterStats(eventId){
   }
 }
 
-document.getElementById('refreshBtn').addEventListener('click', loadLive);
+// ---- 防止 loadLive 重疊執行（例如自動刷新剛好碰上還在無限重試中）----
+let isLoadingLive = false;
+async function loadLiveGuarded(){
+  if(isLoadingLive) return;
+  isLoadingLive = true;
+  try{
+    await loadLive();
+  }finally{
+    isLoadingLive = false;
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadLiveGuarded);
+
+// 每60秒自動刷新一次即時分數；實際打不打得到外部API由 Apps Script 的快取層決定，
+// 不會因為這裡刷新頻率設定得比較密就真的暴增外部請求量
+setInterval(loadLiveGuarded, 60000);
 document.getElementById('curScore').addEventListener('input', calcCustom);
 document.getElementById('curSpeed').addEventListener('input', calcCustom);
 
@@ -1728,7 +1744,7 @@ document.getElementById('lookupIdInput').addEventListener('keydown', e => {
   if(e.key === 'Enter') lookupPlayerId();
 });
 
-loadLive();
+loadLiveGuarded();
 </script>
 </body>
 </html>
