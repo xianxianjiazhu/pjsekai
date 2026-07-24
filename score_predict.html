@@ -418,6 +418,7 @@
       </div>
       <p class="result-note">只有前 100 名內的玩家才查得到詳細時速資料（近1h／3h／24h的次數、得分、時速、平均分），官方 border 端點（T100以外）沒有提供這些細節。</p>
       <div id="lookupIdResult"></div>
+      <button id="lookupIdShareBtn" class="col-toggle-btn" type="button" style="display:none;margin-top:10px;">📷 生成分享圖片</button>
     </div>
   </div>
 
@@ -1569,6 +1570,7 @@ function lookupPlayerId(){
         ⚠ 這個 ID 不在目前前 100 名內，無法查詢詳細時速資料。可以改用上面的「輸入名次查詢」查該名次的預測分數線。
       </p>
     `;
+    document.getElementById('lookupIdShareBtn').style.display = 'none';
     return;
   }
 
@@ -1599,6 +1601,114 @@ function lookupPlayerId(){
       `}
     </div>
   `;
+
+  lastIdLookup = player;
+  document.getElementById('lookupIdShareBtn').style.display = 'inline-flex';
+}
+
+let lastIdLookup = null;
+
+async function generateIdShareImage(player){
+  const btn = document.getElementById('lookupIdShareBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '產生中…';
+  try{
+    const width = 480;
+    const hasDetailStats = !!(player.last_1h_stats || player.last_3h_stats || player.last_24h_stats);
+
+    const bannerImgEl = document.getElementById('eventBanner');
+    const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
+    const bannerHeightProbe = hasBannerProbe
+      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
+      : 0;
+    const headerHeight = bannerHeightProbe + 110;
+    const playerLineHeight = 40;
+    const statsBlockHeight = hasDetailStats ? 130 : 30;
+    const height = headerHeight + playerLineHeight + statsBlockHeight + 40;
+
+    const canvas = document.createElement('canvas');
+    const scale = 2;
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = '#f6f7fb';
+    ctx.fillRect(0, 0, width, height);
+
+    let { y } = drawShareHeader(ctx, width);
+
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    y += 30;
+
+    // 名次 + 名字 + 分數
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#4f46e5';
+    ctx.fillText('T' + player.rank, 20, y);
+    ctx.font = '15px "Space Grotesk", sans-serif';
+    ctx.fillStyle = '#1f2430';
+    ctx.fillText(player.name, 78, y);
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 17px monospace';
+    ctx.fillText(fmtNum(player.score), width - 20, y);
+    y += 30;
+
+    if(hasDetailStats){
+      const cols = [
+        { label: '過去1h', stats: player.last_1h_stats },
+        { label: '過去3h', stats: player.last_3h_stats },
+        { label: '過去24h', stats: player.last_24h_stats },
+      ];
+      const colWidth = (width - 40) / 3;
+      cols.forEach((col, i) => {
+        const cx = 20 + i * colWidth;
+        const s = col.stats || { count: 0, score: 0, speed: 0, average: 0 };
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#4f46e5';
+        ctx.fillText(col.label, cx, y);
+        const rows = [
+          ['次數', s.count], ['得分', s.score], ['時速', s.speed], ['平均分', s.average],
+        ];
+        rows.forEach((row, ri) => {
+          const ry = y + 20 + ri * 18;
+          ctx.font = '11px monospace';
+          ctx.fillStyle = '#6b7280';
+          ctx.fillText(row[0], cx, ry);
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#1f2430';
+          ctx.fillText(fmtNum(row[1]), cx + colWidth - 14, ry);
+          ctx.textAlign = 'left';
+        });
+      });
+      y += statsBlockHeight;
+
+      ctx.font = '10px monospace';
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillText('個人時速資料來自第三方API，偶爾可能有異常，非本站計算錯誤', 20, y);
+      y += 20;
+    }else{
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('目前資料來源沒有提供時速細節（1h/3h/24h）', 20, y);
+      y += 30;
+    }
+
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+
+    downloadCanvas(canvas, `T${player.rank}玩家查詢`);
+  }catch(err){
+    console.error('生成圖片失敗', err);
+    alert('生成圖片失敗，請稍後再試。');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 }
 
 refreshLastIdButton();
@@ -1606,6 +1716,11 @@ refreshLastIdButton();
 document.getElementById('lookupShareBtn').addEventListener('click', () => {
   if(!lastLookup) return;
   generateRankShareImage(lastLookup.rank, lastLookup.entry, lastLookup.histAvgRaw, lastLookup.histIsInterpolated, lastLookup.remainHours);
+});
+
+document.getElementById('lookupIdShareBtn').addEventListener('click', () => {
+  if(!lastIdLookup) return;
+  generateIdShareImage(lastIdLookup);
 });
 
 document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId);
