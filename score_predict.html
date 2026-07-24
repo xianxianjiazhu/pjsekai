@@ -403,6 +403,7 @@
       </div>
     </div>
     <div id="lookupResult"></div>
+    <button id="lookupShareBtn" class="col-toggle-btn" type="button" style="display:none;margin-top:10px;">📷 生成分享圖片</button>
 
     <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);">
       <div class="calc-grid">
@@ -521,20 +522,10 @@ function buildRankTable(ranks, remainHours){
       body.appendChild(tr);
       return;
     }
-    const confidence = r.confidenceHours ? Math.min(r.confidenceHours, 24) / 24 : 1;
-    const rawGain = Math.max(0, r.speed * remainHours);
-    const liveExtrapolated = r.score + rawGain;
     const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
       ? charStats.avgByRank[r.rank]
       : null;
-    // 有歷史平均可以參考、且信心度還沒滿的話，用信心度混合「即時外推」跟「歷史平均」；
-    // 沒有歷史資料，或信心度已經滿了，就照舊用純即時外推
-    let predicted = liveExtrapolated;
-    if(histAvgNum !== null && confidence < 0.999){
-      predicted = confidence * liveExtrapolated + (1 - confidence) * histAvgNum;
-      predicted = Math.max(predicted, r.score); // 預測分數線不該低於目前已經拿到的分數
-    }
-    const gain = Math.max(0, predicted - r.score);
+    const { gain, predicted, confidence } = predictWithConfidence(r, remainHours, histAvgNum);
     const confidenceTag = confidence < 0.999
       ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>`
       : '';
@@ -1082,6 +1073,86 @@ document.getElementById('colToggleBtn').addEventListener('click', () => {
 });
 
 // ---- 生成分享圖片：banner + 活動標題 + 各里程碑目前分數/預測分數線，畫在Canvas上輸出成PNG ----
+// ---- 共用：用信心度混合即時外推與歷史平均，算出預測分數線（buildRankTable/lookupRank/分享圖片都共用這套邏輯）----
+function predictWithConfidence(r, remainHours, histAvgNum){
+  const confidence = r.confidenceHours ? Math.min(r.confidenceHours, 24) / 24 : 1;
+  const rawGain = Math.max(0, r.speed * remainHours);
+  const liveExtrapolated = r.score + rawGain;
+  let predicted = liveExtrapolated;
+  if(histAvgNum !== null && histAvgNum !== undefined && confidence < 0.999){
+    predicted = confidence * liveExtrapolated + (1 - confidence) * histAvgNum;
+    predicted = Math.max(predicted, r.score);
+  }
+  const gain = Math.max(0, predicted - r.score);
+  return { gain, predicted, confidence };
+}
+
+// ---- 共用：在Canvas上畫banner+活動標題+結算時間，回傳畫完後的y座標 ----
+function drawShareHeader(ctx, width){
+  const bannerImg = document.getElementById('eventBanner');
+  const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
+  const bannerHeight = hasBanner
+    ? Math.min(width * (bannerImg.naturalHeight / bannerImg.naturalWidth), 240)
+    : 0;
+
+  let y = 0;
+  if(hasBanner){
+    const bh = bannerHeight;
+    const imgScale = Math.max(width / bannerImg.naturalWidth, bh / bannerImg.naturalHeight);
+    const dw = bannerImg.naturalWidth * imgScale;
+    const dh = bannerImg.naturalHeight * imgScale;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, bh);
+    ctx.clip();
+    ctx.drawImage(bannerImg, (width - dw) / 2, (bh - dh) / 2, dw, dh);
+    ctx.restore();
+    y = bh + 20;
+  }else{
+    y = 20;
+  }
+
+  ctx.fillStyle = '#1f2430';
+  ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+  ctx.textAlign = 'left';
+  const titleText = document.getElementById('eventName').textContent.trim();
+  ctx.fillText(titleText, 20, y + 22);
+  y += 42;
+
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '12px monospace';
+  ctx.fillText(`結算時間：${document.getElementById('checkpointStr').textContent}`, 20, y);
+  y += 18;
+
+  let remainLabel = '—';
+  if(CHECKPOINT_DATE){
+    const diffMs = CHECKPOINT_DATE - new Date();
+    if(diffMs <= 0){
+      remainLabel = '已結算 / 已過結算點';
+    }else{
+      const d = Math.floor(diffMs / 86400000);
+      const h = Math.floor((diffMs % 86400000) / 3600000);
+      const m = Math.floor((diffMs % 3600000) / 60000);
+      remainLabel = `${d}天 ${h}時 ${m}分`;
+    }
+  }
+  ctx.fillText(`距離活動結算：${remainLabel}`, 20, y);
+  y += 22;
+
+  return { y, bannerHeight, hasBanner };
+}
+
+function downloadCanvas(canvas, filenamePrefix){
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
+}
+
 async function generateShareImage(){
   const btn = document.getElementById('shareImageBtn');
   const originalLabel = btn.textContent;
@@ -1096,75 +1167,33 @@ async function generateShareImage(){
 
     const width = 480;
     const rowHeight = 38;
-    const bannerImg = document.getElementById('eventBanner');
-    const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
-    const bannerHeight = hasBanner
-      ? Math.min(width * (bannerImg.naturalHeight / bannerImg.naturalWidth), 240)
+    const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
+
+    // 先量測header高度（用暫時canvas量測banner比例）
+    const probeCanvas = document.createElement('canvas');
+    probeCanvas.width = width; probeCanvas.height = 10;
+    const probeCtx = probeCanvas.getContext('2d');
+    const bannerImgEl = document.getElementById('eventBanner');
+    const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
+    const bannerHeightProbe = hasBannerProbe
+      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
       : 0;
-    const headerHeight = bannerHeight + 110;
+    const headerHeight = bannerHeightProbe + 110;
     const tableHeaderHeight = 40;
     const height = headerHeight + tableHeaderHeight + ranks.length * rowHeight + 30;
 
     const canvas = document.createElement('canvas');
-    const scale = 2; // 輸出兩倍解析度，畫面比較清晰
+    const scale = 2;
     canvas.width = width * scale;
     canvas.height = height * scale;
     const ctx = canvas.getContext('2d');
     ctx.scale(scale, scale);
 
-    // 背景
     ctx.fillStyle = '#f6f7fb';
     ctx.fillRect(0, 0, width, height);
 
-    let y = 0;
+    let { y } = drawShareHeader(ctx, width);
 
-    // Banner（如果有載入成功的話，等比裁切鋪滿寬度）
-    if(hasBanner){
-      const bh = bannerHeight;
-      const imgScale = Math.max(width / bannerImg.naturalWidth, bh / bannerImg.naturalHeight);
-      const dw = bannerImg.naturalWidth * imgScale;
-      const dh = bannerImg.naturalHeight * imgScale;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, width, bh);
-      ctx.clip();
-      ctx.drawImage(bannerImg, (width - dw) / 2, (bh - dh) / 2, dw, dh);
-      ctx.restore();
-      y = bh + 20;
-    }else{
-      y = 20;
-    }
-
-    // 活動標題
-    ctx.fillStyle = '#1f2430';
-    ctx.font = 'bold 20px "Space Grotesk", sans-serif';
-    ctx.textAlign = 'left';
-    const titleText = document.getElementById('eventName').textContent.trim();
-    ctx.fillText(titleText, 20, y + 22);
-    y += 42;
-
-    // 結算時間 + 距離結算剩餘時間
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '12px monospace';
-    ctx.fillText(`結算時間：${document.getElementById('checkpointStr').textContent}`, 20, y);
-    y += 18;
-
-    let remainLabel = '—';
-    if(CHECKPOINT_DATE){
-      const diffMs = CHECKPOINT_DATE - new Date();
-      if(diffMs <= 0){
-        remainLabel = '已結算 / 已過結算點';
-      }else{
-        const d = Math.floor(diffMs / 86400000);
-        const h = Math.floor((diffMs % 86400000) / 3600000);
-        const m = Math.floor((diffMs % 3600000) / 60000);
-        remainLabel = `${d}天 ${h}時 ${m}分`;
-      }
-    }
-    ctx.fillText(`距離活動結算：${remainLabel}`, 20, y);
-    y += 22;
-
-    // 表格分隔線 + 表頭
     ctx.strokeStyle = '#e5e7eb';
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
     y += 24;
@@ -1179,7 +1208,6 @@ async function generateShareImage(){
     ctx.strokeStyle = '#e5e7eb';
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
 
-    const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
     ranks.forEach((r, i) => {
       const rowTop = y + i * rowHeight;
       const rowY = rowTop + 24;
@@ -1187,8 +1215,9 @@ async function generateShareImage(){
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, rowTop, width, rowHeight);
       }
-      const gain = Math.max(0, r.speed * remainHours);
-      const predicted = r.score + gain;
+      const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
+        ? charStats.avgByRank[r.rank] : null;
+      const { predicted } = predictWithConfidence(r, remainHours, histAvgNum);
       ctx.textAlign = 'left';
       ctx.font = 'bold 13px monospace';
       ctx.fillStyle = '#4f46e5';
@@ -1202,20 +1231,12 @@ async function generateShareImage(){
       ctx.fillText(fmtNum(predicted), width - 20, rowY);
     });
 
-    // 浮水印/來源標示
     ctx.textAlign = 'left';
     ctx.font = '10px monospace';
     ctx.fillStyle = '#9ca3af';
     ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
 
-    canvas.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `分數線預測_${new Date().toISOString().slice(0,10)}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    });
+    downloadCanvas(canvas, '分數線預測');
   }catch(err){
     console.error('生成圖片失敗', err);
     alert('生成圖片失敗，請稍後再試。');
@@ -1225,6 +1246,92 @@ async function generateShareImage(){
   }
 }
 document.getElementById('shareImageBtn').addEventListener('click', generateShareImage);
+
+// ---- 輸入名次查詢：生成單一名次的分享圖片 ----
+async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolated, remainHours){
+  const btn = document.getElementById('lookupShareBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '產生中…';
+  try{
+    const width = 480;
+
+    const bannerImgEl = document.getElementById('eventBanner');
+    const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
+    const bannerHeightProbe = hasBannerProbe
+      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
+      : 0;
+    const headerHeight = bannerHeightProbe + 110;
+    const bodyHeight = 220; // 名次/分數/預測分數線/信心度/歷史平均 這幾行的高度
+    const height = headerHeight + bodyHeight + 30;
+
+    const canvas = document.createElement('canvas');
+    const scale = 2;
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = '#f6f7fb';
+    ctx.fillRect(0, 0, width, height);
+
+    let { y } = drawShareHeader(ctx, width);
+
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    y += 30;
+
+    const { gain, predicted, confidence } = predictWithConfidence(entry, remainHours, histAvgRaw);
+
+    // 名次 + 目前分數
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillStyle = '#4f46e5';
+    ctx.fillText('T' + rank, 20, y + 18);
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillStyle = '#1f2430';
+    ctx.fillText(fmtNum(entry.score) + ' 分', width - 20, y + 18);
+    y += 40;
+
+    // 預測分數線（大字）
+    ctx.textAlign = 'left';
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('預測分數線', 20, y);
+    y += 26;
+    ctx.font = 'bold 30px monospace';
+    ctx.fillStyle = '#db2777';
+    ctx.fillText(fmtNum(predicted), 20, y);
+    y += 30;
+
+    // 時速 / 信心度
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#6b7280';
+    let speedLine = `時速約 ${fmtNum(entry.speed)}/h`;
+    if(confidence < 0.999) speedLine += `（信心度${Math.round(confidence*100)}%）`;
+    ctx.fillText(speedLine, 20, y);
+    y += 24;
+
+    // 同角色歷史平均
+    if(histAvgRaw !== null){
+      ctx.fillText(`同角色歷史平均：${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}`, 20, y);
+      y += 24;
+    }
+
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+
+    downloadCanvas(canvas, `T${rank}分數線預測`);
+  }catch(err){
+    console.error('生成圖片失敗', err);
+    alert('生成圖片失敗，請稍後再試。');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
 
 renderCheckpointStr();
 setInterval(()=>{
@@ -1331,15 +1438,7 @@ function lookupRank(){
   }
   const charLabel = charStats ? `（${charStats.character}：過去 ${charStats.sampleCount} 次）` : '';
 
-  const confidence = entry.confidenceHours ? Math.min(entry.confidenceHours, 24) / 24 : 1;
-  const rawGain = Math.max(0, entry.speed * remainHours);
-  const liveExtrapolated = entry.score + rawGain;
-  let predicted = liveExtrapolated;
-  if(histAvgRaw !== null && confidence < 0.999){
-    predicted = confidence * liveExtrapolated + (1 - confidence) * histAvgRaw;
-    predicted = Math.max(predicted, entry.score);
-  }
-  const gain = Math.max(0, predicted - entry.score);
+  const { gain, predicted, confidence } = predictWithConfidence(entry, remainHours, histAvgRaw);
   const confidenceNote = confidence < 0.999
     ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%）</span>`
     : '';
@@ -1391,7 +1490,13 @@ function lookupRank(){
   `;
 
   resultDiv.innerHTML = html;
+
+  // 記住這次查詢結果，供「生成分享圖片」使用
+  lastLookup = { rank, entry, histAvgRaw, histIsInterpolated, remainHours };
+  document.getElementById('lookupShareBtn').style.display = 'inline-flex';
 }
+
+let lastLookup = null;
 
 document.getElementById('lookupBtn').addEventListener('click', lookupRank);
 document.getElementById('lookupRankInput').addEventListener('keydown', e => {
@@ -1497,6 +1602,11 @@ function lookupPlayerId(){
 }
 
 refreshLastIdButton();
+
+document.getElementById('lookupShareBtn').addEventListener('click', () => {
+  if(!lastLookup) return;
+  generateRankShareImage(lastLookup.rank, lastLookup.entry, lastLookup.histAvgRaw, lastLookup.histIsInterpolated, lastLookup.remainHours);
+});
 
 document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId);
 document.getElementById('lookupIdInput').addEventListener('keydown', e => {
