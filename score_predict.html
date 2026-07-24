@@ -304,7 +304,7 @@
 
   <h1>分數線預測</h1>
   <img id="eventBanner" src="assest/event_banner.jpg" alt="活動橫幅"
-       style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin:8px 0 14px;display:none;border:1px solid var(--line);"
+       style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);"
        onload="this.style.display='block';"
        onerror="this.style.display='none';">
   <p class="event-name" id="eventName">載入活動資訊中…</p>
@@ -334,7 +334,7 @@
     <span>預測計算時間：<b id="calcAgo">—</b></span>
   </div>
   <p id="warmupWarning" class="result-note" style="display:none;color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;">
-    ⚠ 活動開始還不到 24 小時，剛開始會衝比較快，算出來的「均速」容易偏高，用它推估剩餘天數的預測分數線可能會偏高估。等時速資料累積滿 24 小時、開始用真實的近24h實測時速取代均速估算後，預測會準確許多，這段時間的數字請保守看待。
+    ⚠ 活動開始還不到 24 小時，時速還在累積、不夠穩定，「結算前預估增加」已經會依資料累積比例自動打折（看各名次旁的「信心度」標示），盡量避免預測暴衝，但終究是還沒滿24小時的粗略推估，這段時間的數字請保守看待。
   </p>
   <p id="charStatsNote" class="result-note" style="display:none;"></p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -358,7 +358,7 @@
       </tbody>
     </table>
   </div>
-  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</p>
+  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史平均」，預測分數線會用信心度混合「即時外推」跟「歷史平均」（信心度越低，越參考歷史平均；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史平均。</p>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
@@ -517,21 +517,34 @@ function buildRankTable(ranks, remainHours){
       body.appendChild(tr);
       return;
     }
-    const gain = Math.max(0, r.speed * remainHours);
-    const predicted = r.score + gain;
+    const confidence = r.confidenceHours ? Math.min(r.confidenceHours, 24) / 24 : 1;
+    const rawGain = Math.max(0, r.speed * remainHours);
+    const liveExtrapolated = r.score + rawGain;
+    const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
+      ? charStats.avgByRank[r.rank]
+      : null;
+    // 有歷史平均可以參考、且信心度還沒滿的話，用信心度混合「即時外推」跟「歷史平均」；
+    // 沒有歷史資料，或信心度已經滿了，就照舊用純即時外推
+    let predicted = liveExtrapolated;
+    if(histAvgNum !== null && confidence < 0.999){
+      predicted = confidence * liveExtrapolated + (1 - confidence) * histAvgNum;
+      predicted = Math.max(predicted, r.score); // 預測分數線不該低於目前已經拿到的分數
+    }
+    const gain = Math.max(0, predicted - r.score);
+    const confidenceTag = confidence < 0.999
+      ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%${histAvgNum !== null ? '，已混合歷史平均' : ''})</span>`
+      : '';
     const speedLabel = r.isRecentLog
       ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
       : r.isAverage
         ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
         : `${fmtNum(r.speed)}/h`;
-    const histAvg = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
-      ? fmtNum(charStats.avgByRank[r.rank])
-      : '<span class="dim">—</span>';
+    const histAvg = histAvgNum !== null ? fmtNum(histAvgNum) : '<span class="dim">—</span>';
     tr.innerHTML = `
       <td class="rank-tag">T${r.rank}</td>
       <td class="mono">${fmtNum(r.score)}</td>
       <td class="mono dim">${speedLabel}</td>
-      <td class="mono dim">+${fmtNum(gain)}</td>
+      <td class="mono dim">+${fmtNum(gain)}${confidenceTag}</td>
       <td class="predicted">${fmtNum(predicted)}</td>
       <td class="mono dim">${histAvg}</td>
     `;
@@ -610,6 +623,7 @@ function pickReferenceRanks(top100arr, hoursSinceStart){
         score: p.score,
         speed: useAverage ? p.score / hoursSinceStart : 0,
         isAverage: useAverage || undefined,
+        confidenceHours: useAverage ? hoursSinceStart : undefined,
       };
     })
     .sort((a,b)=>a.rank-b.rank);
@@ -717,7 +731,7 @@ function overrideWithRecentSpeeds(ranks, speeds){
     if(measured === undefined || measured === null) return r;
     // 只覆蓋掉本來就是估算值的名次
     if(r.isAverage){
-      return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours };
+      return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
     }
     return r;
   });
@@ -859,6 +873,7 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
         score: p.score,
         speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
         isAverage: !!hoursSinceStart,
+        confidenceHours: hoursSinceStart || undefined,
       }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
     // 如果這次拿到的資料裡已經附帶 border 資料（例如 sekai.best，一次給全部），直接用，
@@ -875,6 +890,7 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
         speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
         available: true,
         isAverage: true, // 標記此時速是「開始至今平均」，非近1h/3h/24h實測
+        confidenceHours: hoursSinceStart || undefined,
       }));
     const foundSet = new Set(foundBorderRanks.map(r => r.rank));
     const missingBorderRanks = WANTED_BORDER_RANKS
@@ -1285,14 +1301,6 @@ function lookupRank(){
     return;
   }
 
-  const gain = Math.max(0, entry.speed * remainHours);
-  const predicted = entry.score + gain;
-  const tag = isInterpolated
-    ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
-    : entry.isRecentLog
-      ? `<span class="dim" style="font-size:11px;">（近${entry.recentWindowHours >= 20 ? '24' : Math.round(entry.recentWindowHours)}h實測時速）</span>`
-      : (entry.isAverage ? '<span class="dim" style="font-size:11px;">（均速估算）</span>' : '');
-
   let histAvgRaw = null;
   let histIsInterpolated = false;
   if(charStats && charStats.avgByRank){
@@ -1316,6 +1324,24 @@ function lookupRank(){
     }
   }
   const charLabel = charStats ? `（${charStats.character}：過去 ${charStats.sampleCount} 次）` : '';
+
+  const confidence = entry.confidenceHours ? Math.min(entry.confidenceHours, 24) / 24 : 1;
+  const rawGain = Math.max(0, entry.speed * remainHours);
+  const liveExtrapolated = entry.score + rawGain;
+  let predicted = liveExtrapolated;
+  if(histAvgRaw !== null && confidence < 0.999){
+    predicted = confidence * liveExtrapolated + (1 - confidence) * histAvgRaw;
+    predicted = Math.max(predicted, entry.score);
+  }
+  const gain = Math.max(0, predicted - entry.score);
+  const confidenceNote = confidence < 0.999
+    ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%${histAvgRaw !== null ? '，已混合歷史平均' : ''}）</span>`
+    : '';
+  const tag = isInterpolated
+    ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
+    : entry.isRecentLog
+      ? `<span class="dim" style="font-size:11px;">（近${entry.recentWindowHours >= 20 ? '24' : Math.round(entry.recentWindowHours)}h實測時速）</span>${confidenceNote}`
+      : (entry.isAverage ? `<span class="dim" style="font-size:11px;">（均速估算）</span>${confidenceNote}` : '');
 
   // T1~T100 才有完整玩家資料（名字、1h/3h/24h 細節），T100 以外官方沒有提供
   const fullPlayer = rank <= 100 ? fullTop100PlayersRaw.find(p => p.rank === rank) : null;
