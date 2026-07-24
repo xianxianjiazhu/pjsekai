@@ -358,7 +358,7 @@
       </tbody>
     </table>
   </div>
-  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。取樣終究是「名次門檻」而非個別玩家，短時間排名洗牌時可能會有些微波動，會比 HiSekai 原生的近1h/3h/24h實測時速粗略一些，僅供參考。</p>
+  <p class="result-note">標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</p>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
@@ -600,13 +600,16 @@ function pickReferenceRanks(top100arr, hoursSinceStart){
   return top100arr
     .filter(p => wanted.includes(p.rank))
     .map(p => {
-      const rawSpeed = (p.last_24h_stats && p.last_24h_stats.speed) || 0;
-      const useAverage = rawSpeed <= 0 && hoursSinceStart;
+      // 不再採用 HiSekai 的 last_24h_stats.speed——那是「追蹤個人」的時速，
+      // 同一名次換人時容易暴衝/驟降，而且活動不到24h時它本質上也只是「開始至今平均」，
+      // 跟我們自己算的均速沒有本質差異。統一交給 applyRecentSpeeds()（追蹤排名門檻）處理，
+      // 邏輯跟 T200 以上的 border 名次一致，不會再出現名次高低順序顛倒的情況。
+      const useAverage = !!hoursSinceStart;
       return {
         rank: p.rank,
         score: p.score,
-        speed: useAverage ? p.score / hoursSinceStart : rawSpeed,
-        isAverage: useAverage || undefined, // 近24h時速為0時，退而求其次用活動平均時速估算
+        speed: useAverage ? p.score / hoursSinceStart : 0,
+        isAverage: useAverage || undefined,
       };
     })
     .sort((a,b)=>a.rank-b.rank);
@@ -692,26 +695,40 @@ async function trySekaiBestFetch(){
 
 // 用 border_log 累積的紀錄算出「近期實測時速」，覆蓋掉均速估算（isAverage:true 的名次）
 // 失敗就靜靜跳過，維持原本的均速估算，不影響主流程
-async function applyRecentSpeeds(ranks, eventId){
+let cachedRecentSpeeds = null; // { eventId, speeds } — 同一次 loadLive 週期內共用，避免重複打 API
+
+async function fetchRecentSpeeds(eventId){
   try{
     const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=recent_speed`, { cache: 'no-store' }, 5000);
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const result = await res.json();
-    if(result.error || Number(result.eventId) !== Number(eventId) || !result.speeds) return ranks;
-
-    return ranks.map(r => {
-      const measured = result.speeds[r.rank];
-      if(measured === undefined || measured === null) return r;
-      // 只覆蓋掉本來就是估算值的名次；如果本來就有 HiSekai 原生的近24h實測時速，維持原樣不覆蓋
-      if(r.isAverage){
-        return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours };
-      }
-      return r;
-    });
+    if(result.error || Number(result.eventId) !== Number(eventId) || !result.speeds) return null;
+    return result.speeds;
   }catch(err){
     console.warn('近期實測時速取得失敗，維持均速估算', err);
-    return ranks;
+    return null;
   }
+}
+
+function overrideWithRecentSpeeds(ranks, speeds){
+  if(!speeds) return ranks;
+  return ranks.map(r => {
+    const measured = speeds[r.rank];
+    if(measured === undefined || measured === null) return r;
+    // 只覆蓋掉本來就是估算值的名次
+    if(r.isAverage){
+      return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours };
+    }
+    return r;
+  });
+}
+
+async function applyRecentSpeeds(ranks, eventId){
+  if(!cachedRecentSpeeds || Number(cachedRecentSpeeds.eventId) !== Number(eventId)){
+    const speeds = await fetchRecentSpeeds(eventId);
+    cachedRecentSpeeds = { eventId, speeds };
+  }
+  return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
 
 // 額外抓 border 端點（T1000/2000/5000...），失敗就靜靜跳過，不影響主表
@@ -833,8 +850,16 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
       : null;
 
     const top100Ranks = pickReferenceRanks(data.player_top_100_rankings || [], hoursSinceStart);
+    // 跟 pickReferenceRanks 同樣邏輯：不信任 HiSekai 的個人近24h時速，統一改用開始至今平均當基準，
+    // 之後有 recent_speed（排名門檻）資料會再覆蓋掉，這樣「輸入名次查詢」查 T1~T100 任何名次
+    // 都能跟主表格邏輯一致，不會查到用個人時速算出來的不一致數字
     fullTop100Raw = (data.player_top_100_rankings || [])
-      .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
+      .map(p => ({
+        rank: p.rank,
+        score: p.score,
+        speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+        isAverage: !!hoursSinceStart,
+      }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
     // 如果這次拿到的資料裡已經附帶 border 資料（例如 sekai.best，一次給全部），直接用，
     // 不要另外去問 HiSekai（HiSekai 掛掉時，另外問只會拿到空的，把已經有的資料蓋掉）
@@ -859,7 +884,9 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     let ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
 
     // 用 border_log 累積的紀錄算「近期實測時速」，覆蓋掉不夠準的「開始至今平均」估算
+    cachedRecentSpeeds = null; // 每次重新整理都要抓最新的，不要沿用上次快取
     ranks = await applyRecentSpeeds(ranks, data.id);
+    fullTop100Raw = await applyRecentSpeeds(fullTop100Raw, data.id);
 
     wlOverallRanks = ranks; // 記住「總榜」這份資料，World Link 分頁籤切回總榜時要用
     renderAll(ranks, true);
@@ -1310,6 +1337,7 @@ function lookupRank(){
           ${statBlock('過去 3 小時', fullPlayer.last_3h_stats)}
           ${statBlock('過去 24 小時', fullPlayer.last_24h_stats)}
         </div>
+        <p class="result-note" style="margin-top:10px;">⚠ 個人時速資料來自第三方 API 原始數值，偶爾可能出現異常（例如次數明顯不合理），非本站計算錯誤，預測分數線不受此影響（預測改用排名門檻時速計算，不採用這裡的個人數據）。</p>
       </div>
     `;
   }
@@ -1428,6 +1456,7 @@ function lookupPlayerId(){
           ${statBlock('過去 3 小時', player.last_3h_stats)}
           ${statBlock('過去 24 小時', player.last_24h_stats)}
         </div>
+        <p class="result-note" style="margin-top:10px;">⚠ 個人時速資料來自第三方 API 原始數值，偶爾可能出現異常（例如次數明顯不合理），非本站計算錯誤。</p>
       ` : `
         <p class="result-note" style="color:var(--text-dim);">目前資料來源沒有提供時速細節（1h/3h/24h），只有名次跟分數。</p>
       `}
