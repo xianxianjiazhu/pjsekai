@@ -1,60 +1,50 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>徽章／體力試算</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>徽章目標與體力試算</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
-  <div class="card">
-    <div class="header">徽章目標與體力試算</div>
+  <h1>徽章目標與體力試算</h1>
 
-    <!-- 輸入（黃底） -->
-    <div class="grid">
-      <div class="row">
-        <div class="label">需要多少徽章</div>
-        <div class="field"><input id="need" type="text" inputmode="numeric" placeholder="例如 30000" /><div class="unit">枚</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">現在有多少徽章</div>
-        <div class="field"><input id="have" type="text" inputmode="numeric" placeholder="例如 1000" /><div class="unit">枚</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">每首歌約多少徽章</div>
-        <div class="field"><input id="perSong" type="text" inputmode="numeric" placeholder="例如 2800" /><div class="unit">枚／首</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">每首歌的體力消耗</div>
-        <div class="field"><input id="stamPerSong" type="text" inputmode="numeric" placeholder="例如 5" /><div class="unit">體力／首</div></div>
-        <div></div>
-      </div>
+  <div class="calc-panel">
+    <!-- 輸入 -->
+    <div class="row">
+      <div class="label">需要多少徽章</div>
+      <div class="field"><input id="need" type="text" inputmode="numeric" placeholder="例如 30000" /><div class="unit">枚</div></div>
+    </div>
+    <div class="row">
+      <div class="label">現在有多少徽章</div>
+      <div class="field"><input id="have" type="text" inputmode="numeric" placeholder="例如 1000" /><div class="unit">枚</div></div>
+    </div>
+    <div class="row">
+      <div class="label">每首歌約多少徽章</div>
+      <div class="field"><input id="perSong" type="text" inputmode="numeric" placeholder="例如 2800" /><div class="unit">枚／首</div></div>
+    </div>
+    <div class="row">
+      <div class="label">每首歌的體力消耗</div>
+      <div class="field"><input id="stamPerSong" type="text" inputmode="numeric" placeholder="例如 5" /><div class="unit">體力／首</div></div>
     </div>
 
     <div class="hint">公式：尚需徽章 = max(需要 − 現在, 0)；還需要打首歌 = ⌈尚需徽章 ÷ 每首歌徽章⌉；需要體力 = 還需要打首歌 × 每首歌體力。</div>
 
-    <!-- 結果（橘底） -->
-    <div class="grid">
-      <div class="row">
-        <div class="label">還需要打</div>
-        <div class="calc"><input id="songsNeed" type="text" value="—" readonly /><div class="unit">首歌</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">需要</div>
-        <div class="calc"><input id="staminaNeed" type="text" value="—" readonly /><div class="unit">體力</div></div>
-        <div></div>
-      </div>
+    <!-- 結果 -->
+    <div class="row">
+      <div class="label">還需要打</div>
+      <div class="field"><input id="songsNeed" type="text" value="—" readonly /><div class="unit">首歌</div></div>
+    </div>
+    <div class="row">
+      <div class="label">需要</div>
+      <div class="field"><input id="staminaNeed" type="text" value="—" readonly /><div class="unit">體力</div></div>
     </div>
 
     <!-- KPI + 進度條 -->
     <div class="kpi">
-      <div class="pill">尚需徽章：<span id="remain">0</span> 枚</div>
-      <div class="pill">進度：<span id="progressPct">0%</span></div>
+      <div class="pill">尚需徽章：<b id="remain">0</b> 枚</div>
+      <div class="pill">進度：<b id="progressPct">0%</b></div>
     </div>
     <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
     <div class="progress-text">完成度：<span id="progressText">0%</span></div>
@@ -63,7 +53,7 @@
       <button class="primary" id="fillDemo">填入示例數據</button>
       <button id="resetAll">清空</button>
       <button id="save">儲存輸入</button>
-      <span style="margin-left:auto;color:#6b7280;font-size:12px">資料僅存於本機瀏覽器</span>
+      <span class="footer-note">資料僅存於本機瀏覽器</span>
     </div>
   </div>
 </div>

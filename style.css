@@ -1,28 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  :root{ --yellow:#fff39b; --orange:#ffd9a6; --bg:#f6f7fb; --card:#fff;
-         --border:#e5e7eb; --accent:#4f46e5; }
-  *{box-sizing:border-box}
-  body{ margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans TC";
-        background:var(--bg); color:#111827; line-height:1.5; }
-  .wrap{ max-width:720px; margin:32px auto; padding:16px }
-  .card{ background:var(--card); border:1px solid var(--border); border-radius:16px;
-         box-shadow:0 6px 20px rgba(0,0,0,.06); overflow:hidden; }
-  .header{ padding:18px 20px; font-weight:700; font-size:18px;
-           border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fafafa,#fff); }
-  .grid{ display:grid; grid-template-columns:1.4fr 1fr .8fr; gap:10px; padding:16px 20px; }
-  .row{ display:contents }
-  .label{ align-self:center; color:#374151 }
-  .field,.calc{ display:flex; align-items:center; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
-  input[type="text"]{ width:100%; border:0; padding:10px 12px; font-size:16px; background:transparent; outline:none; }
-  .unit{ padding:0 10px; font-size:14px; color:#6b7280; white-space:nowrap; border-left:1px dashed #d1d5db; background:rgba(0,0,0,.02) }
-  .field{ background:var(--yellow) } .calc{ background:var(--orange) }
-  .hint{ padding:0 20px 18px; color:#6b7280; font-size:12px; }
-  .footer{ padding:12px 20px 20px; display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border) }
-  button{ border:1px solid var(--border); background:#fff; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
-  button.primary{ background:var(--accent); color:#fff; border-color:transparent }
-  .kpi{ padding:12px 20px 8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center }
-  .pill{ background:#f3f4f6; border:1px solid var(--border); border-radius:999px; padding:8px 12px; font-size:13px; color:#374151; }
-  .progress-wrap{ width:calc(100% - 40px); margin:6px 20px 16px; height:16px; background:#e5e7eb; border-radius:8px; overflow:hidden; }
-  .progress-bar{ height:100%; width:0%; background:linear-gradient(90deg,#60a5fa,#2563eb); transition:width .3s ease; }
-  .progress-text{ text-align:right; padding:0 20px 12px; color:#374151; font-size:12px; }
-  @media (max-width:640px){ .grid{grid-template-columns:1fr} .unit{display:none} }
+:root{
+  --bg:#f6f7fb;
+  --bg-panel:#ffffff;
+  --bg-panel-2:#f1f2f8;
+  --line:#e5e7eb;
+  --text:#1f2430;
+  --text-dim:#6b7280;
+  --cyan:#4f46e5;
+  --pink:#db2777;
+  --purple:#7c3aed;
+  --amber:#d97706;
+  --green:#059669;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Space Grotesk', system-ui, "Noto Sans TC", sans-serif;
+  padding:28px 16px 60px;
+}
+.wrap{max-width:640px;margin:0 auto;}
+
+h1{font-size:24px;margin:0 0 20px;font-weight:700;}
+
+.calc-panel{
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:24px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* 2欄版型（標籤 + 一個輸入框），給徽章試算／體力回復用 */
+.row{
+  display:grid;
+  grid-template-columns:1fr 1.1fr;
+  align-items:center;
+  gap:14px;
+  margin-bottom:14px;
+}
+/* 3欄版型（標籤 + 輸入框 + 換算結果），給倍率計算用；
+   只需要一個值欄位時，該欄位可加 style="grid-column:span 2" 跨欄 */
+.row3{
+  display:grid;
+  grid-template-columns:0.8fr 1fr 1fr;
+  align-items:center;
+  gap:10px;
+  margin-bottom:14px;
+}
+@media (max-width:480px){
+  .row{grid-template-columns:1fr;}
+  .row3{grid-template-columns:1fr;}
+}
+
+.label{font-size:13.5px;color:var(--text);font-weight:500;}
+.field{position:relative;display:flex;align-items:center;}
+
+input[type=text]{
+  width:100%;
+  background:var(--bg-panel-2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:10px 60px 10px 12px;
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;
+}
+input[type=text]:focus{outline:none;border-color:var(--cyan);}
+input[type=text][readonly]{
+  background:linear-gradient(120deg, rgba(79,70,229,0.06), rgba(219,39,119,0.06));
+  border-color:var(--line);
+  color:var(--pink);
+  font-weight:700;
+}
+.unit{
+  position:absolute;
+  right:12px;
+  font-size:11.5px;
+  color:var(--text-dim);
+  font-family:'JetBrains Mono',monospace;
+  pointer-events:none;
+}
+
+.hint{
+  font-size:12px;
+  color:var(--text-dim);
+  line-height:1.6;
+  background:var(--bg-panel-2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 14px;
+  margin:6px 0 20px;
+}
+.hint strong{color:var(--cyan);}
+
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 10px;}
+.pill{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12.5px;
+  background:var(--bg-panel-2);
+  border:1px solid var(--line);
+  color:var(--text-dim);
+  padding:7px 14px;
+  border-radius:999px;
+}
+.pill span, .pill b{color:var(--cyan);font-weight:700;}
+
+.progress-wrap{
+  width:100%;
+  height:10px;
+  background:var(--bg-panel-2);
+  border:1px solid var(--line);
+  border-radius:999px;
+  overflow:hidden;
+  margin-top:4px;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg, var(--cyan), var(--purple));
+  border-radius:999px;
+  transition:width .3s ease;
+}
+.progress-text{
+  text-align:right;
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  color:var(--text-dim);
+  margin-top:6px;
+}
+
+.footer{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid var(--line);
+}
+button{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12.5px;
+  border-radius:8px;
+  padding:9px 16px;
+  cursor:pointer;
+  border:1px solid var(--line);
+  background:var(--bg-panel-2);
+  color:var(--text-dim);
+}
+button:hover{border-color:var(--cyan);color:var(--cyan);}
+button.primary{
+  background:var(--cyan);
+  border-color:var(--cyan);
+  color:#ffffff;
+  font-weight:600;
+}
+button.primary:hover{opacity:0.9;color:#fff;}
+.footer-note{margin-left:auto;color:var(--text-dim);font-size:11.5px;}

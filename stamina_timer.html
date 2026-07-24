@@ -1,44 +1,36 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>體力回復試算</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
-  <div class="card">
-    <div class="header">體力回復試算</div>
+  <h1>體力回復試算</h1>
 
-    <!-- 輸入（黃底） -->
-    <div class="grid">
-      <div class="row">
-        <div class="label">體力上限</div>
-        <div class="field"><input id="cap" type="text" inputmode="numeric" placeholder="例如 30" /><div class="unit">體力</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">目前體力</div>
-        <div class="field"><input id="current" type="text" inputmode="numeric" placeholder="例如 15" /><div class="unit">體力</div></div>
-        <div></div>
-      </div>
+  <div class="calc-panel">
+    <!-- 輸入 -->
+    <div class="row">
+      <div class="label">體力上限</div>
+      <div class="field"><input id="cap" type="text" inputmode="numeric" placeholder="例如 30" /><div class="unit">體力</div></div>
+    </div>
+    <div class="row">
+      <div class="label">目前體力</div>
+      <div class="field"><input id="current" type="text" inputmode="numeric" placeholder="例如 15" /><div class="unit">體力</div></div>
     </div>
 
     <div class="hint">規則：每 <strong>1 體力＝30 分鐘</strong> 回復。</div>
 
-    <!-- 結果（橘底） -->
-    <div class="grid">
-      <div class="row">
-        <div class="label">還差</div>
-        <div class="calc"><input id="needStam" type="text" value="—" readonly /><div class="unit">體力</div></div>
-        <div></div>
-      </div>
-      <div class="row">
-        <div class="label">需要時間</div>
-        <div class="calc"><input id="needTime" type="text" value="—" readonly /><div class="unit">耗時</div></div>
-        <div></div>
-      </div>
+    <!-- 結果 -->
+    <div class="row">
+      <div class="label">還差</div>
+      <div class="field"><input id="needStam" type="text" value="—" readonly /><div class="unit">體力</div></div>
+    </div>
+    <div class="row">
+      <div class="label">需要時間</div>
+      <div class="field"><input id="needTime" type="text" value="—" readonly /><div class="unit">耗時</div></div>
     </div>
 
     <!-- 進度條 -->
@@ -53,7 +45,7 @@
       <button class="primary" id="fillDemo">填入示例數據</button>
       <button id="resetAll">清空</button>
       <button id="save">儲存輸入</button>
-      <span style="margin-left:auto;color:#6b7280;font-size:12px">資料僅存於本機瀏覽器</span>
+      <span class="footer-note">資料僅存於本機瀏覽器</span>
     </div>
   </div>
 </div>
