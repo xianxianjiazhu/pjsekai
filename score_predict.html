@@ -517,7 +517,7 @@ function buildRankTable(ranks, remainHours){
     if(r.available === false || r.score === null){
       tr.innerHTML = `
         <td class="rank-tag">T${r.rank}</td>
-        <td class="mono dim" colspan="5">— 無官方精彩片段資料（此名次非固定檢查點，或該資料尚未更新）</td>
+        <td class="mono dim" colspan="5">— 無官方資料</td>
       `;
       body.appendChild(tr);
       return;
