@@ -1098,7 +1098,9 @@ async function generateShareImage(){
     const rowHeight = 38;
     const bannerImg = document.getElementById('eventBanner');
     const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
-    const bannerHeight = hasBanner ? 160 : 0;
+    const bannerHeight = hasBanner
+      ? Math.min(width * (bannerImg.naturalHeight / bannerImg.naturalWidth), 240)
+      : 0;
     const headerHeight = bannerHeight + 110;
     const tableHeaderHeight = 40;
     const height = headerHeight + tableHeaderHeight + ranks.length * rowHeight + 30;
