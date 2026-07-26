@@ -1251,7 +1251,8 @@ async function generateShareImage(){
     ctx.textAlign = 'left';
     ctx.font = '10px monospace';
     ctx.fillStyle = '#9ca3af';
-    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 24);
+    ctx.fillText('xianxianjiazhu.github.io/pjsekai', 20, height - 12);
 
     downloadCanvas(canvas, '分數線預測');
   }catch(err){
@@ -1280,7 +1281,7 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
       : 0;
     const headerHeight = bannerHeightProbe + 110;
     const bodyHeight = 220; // 名次/分數/預測分數線/信心度/歷史平均 這幾行的高度
-    const height = headerHeight + bodyHeight + 30;
+    const height = headerHeight + bodyHeight + 40;
 
     const canvas = document.createElement('canvas');
     const scale = 2;
@@ -1338,7 +1339,8 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
 
     ctx.font = '10px monospace';
     ctx.fillStyle = '#9ca3af';
-    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 24);
+    ctx.fillText('xianxianjiazhu.github.io/pjsekai', 20, height - 12);
 
     downloadCanvas(canvas, `T${rank}分數線預測`);
   }catch(err){
@@ -1715,7 +1717,8 @@ async function generateIdShareImage(player){
 
     ctx.font = '10px monospace';
     ctx.fillStyle = '#9ca3af';
-    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 12);
+    ctx.fillText(`產生時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`, 20, height - 24);
+    ctx.fillText('xianxianjiazhu.github.io/pjsekai', 20, height - 12);
 
     downloadCanvas(canvas, `T${player.rank}玩家查詢`);
   }catch(err){
