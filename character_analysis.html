@@ -31,6 +31,20 @@
     font-size:13px;
   }
   select:focus{outline:none;border-color:var(--cyan);}
+  .col-toggle-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    padding:6px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
   .table-panel{
     background:var(--bg-panel);
     border:1px solid var(--line);
@@ -40,10 +54,9 @@
     margin-bottom:16px;
   }
   .table-panel thead th{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
-  table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:700px;}
   th,td{padding:10px 12px;text-align:right;white-space:nowrap;}
   th:first-child,td:first-child{text-align:left;}
-  th:nth-child(2),td:nth-child(2){text-align:left;}
   th{
     font-family:'JetBrains Mono',monospace;
     font-size:11px;color:var(--text-dim);
@@ -56,15 +69,6 @@
   .mono{font-family:'JetBrains Mono',monospace;}
   .dim{color:var(--text-dim);}
   .char-name{font-weight:700;color:var(--cyan);}
-  .unit-tag{
-    font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;
-    color:var(--purple);
-    background:rgba(124,58,237,0.08);
-    border:1px solid rgba(124,58,237,0.25);
-    border-radius:6px;
-    padding:2px 6px;
-  }
   .trend-up{color:var(--green);font-weight:700;}
   .trend-down{color:var(--pink);font-weight:700;}
   .cv-warn{color:var(--amber);}
@@ -73,6 +77,29 @@
     font-size:12.5px;color:var(--text-dim);
     padding:20px;text-align:center;
   }
+  table.compact th:nth-child(6),
+  table.compact td:nth-child(6),
+  table.compact th:nth-child(7),
+  table.compact td:nth-child(7){
+    display:none;
+  }
+  .detail-panel{
+    display:none;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .detail-panel.active{display:block;}
+  .detail-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .detail-title{font-size:16px;font-weight:700;color:var(--cyan);}
+  .back-btn{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    background:var(--bg-panel-2);border:1px solid var(--line);
+    color:var(--text-dim);padding:7px 14px;border-radius:8px;cursor:pointer;
+  }
+  .back-btn:hover{border-color:var(--cyan);color:var(--cyan);}
 </style>
 </head>
 <body>
@@ -83,7 +110,7 @@
       <li><strong>中位數</strong>是該角色主打過的所有一般活動（排除 World Link 與標記異常的期數），在對應名次的最終分數中位數，是預測分數線的歷史基準。</li>
       <li><strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。</li>
       <li><strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。</li>
-      <li>部分極端名次（如T50000/T100000）樣本數較少，官方資料本身容易缺漏，屬正常現象。</li>
+      <li>點角色名稱可以進一步用「次要角色」篩選重新計算中位數，看搭配特定角色時分數有沒有明顯不同（樣本數少時參考價值較低，請留意樣本數）。</li>
     </ol>
   </div>
 
@@ -92,47 +119,85 @@
     <button class="source-tab" data-source="worldLink">World Link 章節</button>
   </div>
 
-  <div class="top-row">
-    <div class="filter-row">
-      <select id="unitFilter">
-        <option value="">全部團體</option>
-      </select>
-      <select id="charFilter">
-        <option value="">全部角色</option>
-      </select>
-      <select id="rankFilter">
-        <option value="">全部名次</option>
-      </select>
-      <select id="sortBy">
-        <option value="default">預設排序（角色→名次）</option>
-        <option value="trend_desc">趨勢%：高到低</option>
-        <option value="trend_asc">趨勢%：低到高</option>
-        <option value="cv_desc">變異係數%：高到低（最不穩定）</option>
-      </select>
+  <!-- 總覽模式 -->
+  <div id="overviewView">
+    <div class="top-row">
+      <div class="filter-row">
+        <select id="unitFilter">
+          <option value="">全部團體</option>
+        </select>
+        <select id="charFilter">
+          <option value="">全部角色</option>
+        </select>
+        <select id="rankFilter">
+          <option value="">全部名次</option>
+        </select>
+        <select id="sortBy">
+          <option value="default">預設排序（角色→名次）</option>
+          <option value="trend_desc">趨勢%：高到低</option>
+          <option value="trend_asc">趨勢%：低到高</option>
+          <option value="cv_desc">變異係數%：高到低（最不穩定）</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="colToggleBtn" class="col-toggle-btn" type="button">☰ 精簡顯示</button>
+        <button id="refreshBtn" class="primary">↻ 重新整理</button>
+      </div>
     </div>
-    <button id="refreshBtn" class="primary">↻ 重新整理</button>
+
+    <div class="table-panel">
+      <table id="analysisTable">
+        <thead>
+          <tr>
+            <th>角色</th>
+            <th>名次</th>
+            <th>樣本數</th>
+            <th>中位數</th>
+            <th>最小值</th>
+            <th>最大值</th>
+            <th>變異係數%</th>
+            <th>最近3期中位數</th>
+            <th>趨勢%</th>
+          </tr>
+        </thead>
+        <tbody id="analysisBody">
+          <tr><td colspan="9" class="status-msg">載入資料中…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="table-panel">
-    <table id="analysisTable">
-      <thead>
-        <tr>
-          <th>角色</th>
-          <th>團體</th>
-          <th>名次</th>
-          <th>樣本數</th>
-          <th>中位數</th>
-          <th>最小值</th>
-          <th>最大值</th>
-          <th>變異係數%</th>
-          <th>最近3期中位數</th>
-          <th>趨勢%</th>
-        </tr>
-      </thead>
-      <tbody id="analysisBody">
-        <tr><td colspan="10" class="status-msg">載入資料中…</td></tr>
-      </tbody>
-    </table>
+  <!-- 單一角色詳細模式（次要角色互動篩選）-->
+  <div id="detailView" class="detail-panel">
+    <div class="detail-header">
+      <span class="detail-title" id="detailTitle"></span>
+      <button class="back-btn" id="backBtn">← 返回總覽</button>
+    </div>
+    <div class="filter-row">
+      <select id="subCharFilter">
+        <option value="">全部次要角色（不篩選）</option>
+      </select>
+      <span class="dim mono" id="detailSampleNote" style="font-size:12px;"></span>
+    </div>
+    <div class="table-panel">
+      <table id="detailTable">
+        <thead>
+          <tr>
+            <th>名次</th>
+            <th>樣本數</th>
+            <th>中位數</th>
+            <th>最小值</th>
+            <th>最大值</th>
+            <th>變異係數%</th>
+            <th>最近3期中位數</th>
+            <th>趨勢%</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody">
+          <tr><td colspan="8" class="status-msg">載入資料中…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="footer">
@@ -145,6 +210,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5up
 
 let allDataBySource = { marathon: [], worldLink: [] };
 let activeSource = 'marathon';
+let currentDetailCharacter = null;
 
 function fmtNum(n){
   if(n === '' || n === null || n === undefined) return '—';
@@ -216,7 +282,8 @@ function renderTable(){
 
   const body = document.getElementById('analysisBody');
   if(!rows.length){
-    body.innerHTML = `<tr><td colspan="10" class="status-msg">沒有符合篩選條件的資料</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="status-msg">沒有符合篩選條件的資料</td></tr>`;
+    reportHeightToParent();
     return;
   }
 
@@ -225,8 +292,7 @@ function renderTable(){
     const cvClass = Number(d.cv) >= 30 ? 'cv-warn' : 'dim';
     return `
       <tr>
-        <td class="char-name">${d.character}</td>
-        <td><span class="unit-tag">${d.unit || '—'}</span></td>
+        <td class="char-name" style="cursor:pointer;" data-character="${d.character}">${d.character} ›</td>
         <td class="mono">T${d.rank}</td>
         <td class="mono dim">${d.sampleCount}</td>
         <td class="mono">${fmtNum(d.median)}</td>
@@ -238,11 +304,17 @@ function renderTable(){
       </tr>
     `;
   }).join('');
+
+  document.querySelectorAll('#analysisBody .char-name').forEach(el => {
+    el.addEventListener('click', () => openDetail(el.dataset.character));
+  });
+
+  reportHeightToParent();
 }
 
 async function loadData(){
   const body = document.getElementById('analysisBody');
-  body.innerHTML = `<tr><td colspan="10" class="status-msg">載入資料中…</td></tr>`;
+  body.innerHTML = `<tr><td colspan="9" class="status-msg">載入資料中…</td></tr>`;
   document.getElementById('dataNote').textContent = '';
 
   try{
@@ -251,7 +323,8 @@ async function loadData(){
     const result = await res.json();
 
     if(result.error){
-      body.innerHTML = `<tr><td colspan="10" class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</td></tr>`;
+      reportHeightToParent();
       return;
     }
 
@@ -262,15 +335,117 @@ async function loadData(){
       `一般活動 ${allDataBySource.marathon.length} 筆・World Link 章節 ${allDataBySource.worldLink.length} 筆`;
   }catch(err){
     console.error('載入分析資料失敗', err);
-    body.innerHTML = `<tr><td colspan="10" class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</td></tr>`;
+    reportHeightToParent();
   }
 }
+
+// ---- 單一角色詳細模式（次要角色互動篩選）----
+async function openDetail(character){
+  currentDetailCharacter = character;
+  document.getElementById('overviewView').style.display = 'none';
+  document.getElementById('detailView').classList.add('active');
+  document.getElementById('detailTitle').textContent = `${character}｜次要角色篩選`;
+  await loadDetail(character, '');
+}
+
+function closeDetail(){
+  currentDetailCharacter = null;
+  document.getElementById('overviewView').style.display = 'block';
+  document.getElementById('detailView').classList.remove('active');
+  reportHeightToParent();
+}
+
+async function loadDetail(character, subCharacter){
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `<tr><td colspan="8" class="status-msg">載入資料中…</td></tr>`;
+
+  try{
+    const url = `${APPS_SCRIPT_URL}?mode=character_detail&character=${encodeURIComponent(character)}&subCharacter=${encodeURIComponent(subCharacter)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const detail = await res.json();
+
+    if(detail.error){
+      body.innerHTML = `<tr><td colspan="8" class="status-msg">載入失敗</td></tr>`;
+      reportHeightToParent();
+      return;
+    }
+
+    // 次要角色下拉選單只需要建立一次（第一次載入、subCharacter為空時）
+    const subSel = document.getElementById('subCharFilter');
+    if(!subCharacter){
+      subSel.innerHTML = '<option value="">全部次要角色（不篩選）</option>';
+      detail.subCharacterOptions.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        subSel.appendChild(opt);
+      });
+    }
+
+    document.getElementById('detailSampleNote').textContent =
+      subCharacter
+        ? `搭配「${subCharacter}」：共 ${detail.sampleCount} 期符合`
+        : `全部歷史：共 ${detail.sampleCount} 期`;
+
+    if(!detail.byRank.length){
+      body.innerHTML = `<tr><td colspan="8" class="status-msg">這個篩選條件下沒有資料</td></tr>`;
+      reportHeightToParent();
+      return;
+    }
+
+    body.innerHTML = detail.byRank.map(d => {
+      const trendClass = d.trendPct === '' ? 'dim' : (d.trendPct > 0 ? 'trend-up' : (d.trendPct < 0 ? 'trend-down' : 'dim'));
+      const cvClass = Number(d.cv) >= 30 ? 'cv-warn' : 'dim';
+      return `
+        <tr>
+          <td class="mono char-name">T${d.rank}</td>
+          <td class="mono dim">${d.sampleCount}</td>
+          <td class="mono">${fmtNum(d.median)}</td>
+          <td class="mono dim">${fmtNum(d.min)}</td>
+          <td class="mono dim">${fmtNum(d.max)}</td>
+          <td class="mono ${cvClass}">${d.cv}%</td>
+          <td class="mono dim">${fmtNum(d.recentMedian)}</td>
+          <td class="mono ${trendClass}">${fmtPct(d.trendPct)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    reportHeightToParent();
+  }catch(err){
+    console.error('載入角色詳細資料失敗', err);
+    body.innerHTML = `<tr><td colspan="8" class="status-msg">載入失敗，請稍後再試。</td></tr>`;
+    reportHeightToParent();
+  }
+}
+
+document.getElementById('backBtn').addEventListener('click', closeDetail);
+document.getElementById('subCharFilter').addEventListener('change', (e) => {
+  if(currentDetailCharacter) loadDetail(currentDetailCharacter, e.target.value);
+});
+
+// ---- 精簡顯示切換 ----
+function updateColToggleLabel(isCompact){
+  document.getElementById('colToggleBtn').textContent = isCompact ? '☰ 精簡顯示' : '☰ 完整顯示';
+}
+function setCompactTable(isCompact){
+  document.getElementById('analysisTable').classList.toggle('compact', isCompact);
+  updateColToggleLabel(isCompact);
+  reportHeightToParent();
+}
+setCompactTable(window.innerWidth < 900);
+document.getElementById('colToggleBtn').addEventListener('click', () => {
+  const isCompact = document.getElementById('analysisTable').classList.contains('compact');
+  setCompactTable(!isCompact);
+});
 
 document.querySelectorAll('.source-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.source-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeSource = btn.dataset.source;
+    closeDetail();
     populateFilters(allDataBySource[activeSource]);
     renderTable();
   });
@@ -281,6 +456,23 @@ document.getElementById('charFilter').addEventListener('change', renderTable);
 document.getElementById('rankFilter').addEventListener('change', renderTable);
 document.getElementById('sortBy').addEventListener('change', renderTable);
 document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+// ---- 主動回報頁面高度給外層 index.html（篩選/切換後表格變短，讓外層iframe跟著縮小，避免留下空白）----
+let lastReportedHeight = 0;
+function reportHeightToParent(){
+  if(window.parent === window) return;
+  // 用 setTimeout 讓 DOM 更新完再量測，避免量到舊高度
+  setTimeout(() => {
+    const h = document.documentElement.scrollHeight;
+    if(Math.abs(h - lastReportedHeight) < 5) return;
+    lastReportedHeight = h;
+    window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
+  }, 0);
+}
+window.addEventListener('load', reportHeightToParent);
+if(window.ResizeObserver){
+  new ResizeObserver(reportHeightToParent).observe(document.body);
+}
 
 loadData();
 </script>
