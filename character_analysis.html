@@ -6,9 +6,20 @@
 <title>同角色歷史分析</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  /* 補充表格樣式，沿用 style.css 已定義的 CSS 變數，不重複定義配色系統 */
-  .wrap{max-width:920px;}
+  .wrap{max-width:960px;}
   .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+  .source-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .source-tab{
+    border:1px solid var(--line);
+    background:var(--bg-panel);
+    padding:9px 16px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:13px;
+    color:var(--text-dim);
+  }
+  .source-tab.active{background:var(--cyan);color:#fff;border-color:transparent;}
   .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
   select{
     background:var(--bg-panel-2);
@@ -29,9 +40,10 @@
     margin-bottom:16px;
   }
   .table-panel thead th{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
-  table{width:100%;border-collapse:collapse;font-size:13px;min-width:760px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px;}
   th,td{padding:10px 12px;text-align:right;white-space:nowrap;}
   th:first-child,td:first-child{text-align:left;}
+  th:nth-child(2),td:nth-child(2){text-align:left;}
   th{
     font-family:'JetBrains Mono',monospace;
     font-size:11px;color:var(--text-dim);
@@ -44,6 +56,15 @@
   .mono{font-family:'JetBrains Mono',monospace;}
   .dim{color:var(--text-dim);}
   .char-name{font-weight:700;color:var(--cyan);}
+  .unit-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--purple);
+    background:rgba(124,58,237,0.08);
+    border:1px solid rgba(124,58,237,0.25);
+    border-radius:6px;
+    padding:2px 6px;
+  }
   .trend-up{color:var(--green);font-weight:700;}
   .trend-down{color:var(--pink);font-weight:700;}
   .cv-warn{color:var(--amber);}
@@ -58,13 +79,22 @@
 <div class="wrap">
   <h1>同角色歷史分析</h1>
   <div class="hint">
-    <strong>中位數</strong>是該角色主打過的所有一般活動（排除 World Link 與標記異常的期數），在對應名次的最終分數中位數，是預測分數線的歷史基準。
+    <strong>中位數</strong>是該角色在對應名次的最終分數中位數，一般活動用 <strong>historical_scores</strong>、World Link 用 <strong>wl_historical_scores</strong>（章節角色資料），兩者機制不同不會混算。
     <strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。
-    <strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。
+    <strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表近期表現比歷史平均更強。
+    部分極端名次（如T50000/T100000）樣本數較少，官方資料本身容易缺漏，屬正常現象。
+  </div>
+
+  <div class="source-tabs">
+    <button class="source-tab active" data-source="marathon">一般活動（Marathon）</button>
+    <button class="source-tab" data-source="worldLink">World Link 章節</button>
   </div>
 
   <div class="top-row">
     <div class="filter-row">
+      <select id="unitFilter">
+        <option value="">全部團體</option>
+      </select>
       <select id="charFilter">
         <option value="">全部角色</option>
       </select>
@@ -86,6 +116,7 @@
       <thead>
         <tr>
           <th>角色</th>
+          <th>團體</th>
           <th>名次</th>
           <th>樣本數</th>
           <th>中位數</th>
@@ -97,7 +128,7 @@
         </tr>
       </thead>
       <tbody id="analysisBody">
-        <tr><td colspan="9" class="status-msg">載入資料中…</td></tr>
+        <tr><td colspan="10" class="status-msg">載入資料中…</td></tr>
       </tbody>
     </table>
   </div>
@@ -110,7 +141,8 @@
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
 
-let allData = [];
+let allDataBySource = { marathon: [], worldLink: [] };
+let activeSource = 'marathon';
 
 function fmtNum(n){
   if(n === '' || n === null || n === undefined) return '—';
@@ -123,8 +155,21 @@ function fmtPct(n){
 }
 
 function populateFilters(data){
+  const unitFilter = document.getElementById('unitFilter');
   const charFilter = document.getElementById('charFilter');
   const rankFilter = document.getElementById('rankFilter');
+
+  unitFilter.innerHTML = '<option value="">全部團體</option>';
+  charFilter.innerHTML = '<option value="">全部角色</option>';
+  rankFilter.innerHTML = '<option value="">全部名次</option>';
+
+  const units = [...new Set(data.map(d => d.unit))].filter(Boolean).sort();
+  units.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u;
+    opt.textContent = u;
+    unitFilter.appendChild(opt);
+  });
 
   const characters = [...new Set(data.map(d => d.character))].sort();
   characters.forEach(c => {
@@ -144,11 +189,14 @@ function populateFilters(data){
 }
 
 function renderTable(){
+  const data = allDataBySource[activeSource] || [];
+  const unitSel = document.getElementById('unitFilter').value;
   const charSel = document.getElementById('charFilter').value;
   const rankSel = document.getElementById('rankFilter').value;
   const sortBy = document.getElementById('sortBy').value;
 
-  let rows = allData.filter(d => {
+  let rows = data.filter(d => {
+    if(unitSel && d.unit !== unitSel) return false;
     if(charSel && d.character !== charSel) return false;
     if(rankSel && String(d.rank) !== rankSel) return false;
     return true;
@@ -166,7 +214,7 @@ function renderTable(){
 
   const body = document.getElementById('analysisBody');
   if(!rows.length){
-    body.innerHTML = `<tr><td colspan="9" class="status-msg">沒有符合篩選條件的資料</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="status-msg">沒有符合篩選條件的資料</td></tr>`;
     return;
   }
 
@@ -176,6 +224,7 @@ function renderTable(){
     return `
       <tr>
         <td class="char-name">${d.character}</td>
+        <td><span class="unit-tag">${d.unit || '—'}</span></td>
         <td class="mono">T${d.rank}</td>
         <td class="mono dim">${d.sampleCount}</td>
         <td class="mono">${fmtNum(d.median)}</td>
@@ -191,7 +240,7 @@ function renderTable(){
 
 async function loadData(){
   const body = document.getElementById('analysisBody');
-  body.innerHTML = `<tr><td colspan="9" class="status-msg">載入資料中…</td></tr>`;
+  body.innerHTML = `<tr><td colspan="10" class="status-msg">載入資料中…</td></tr>`;
   document.getElementById('dataNote').textContent = '';
 
   try{
@@ -200,22 +249,32 @@ async function loadData(){
     const result = await res.json();
 
     if(result.error){
-      body.innerHTML = `<tr><td colspan="9" class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</td></tr>`;
       return;
     }
 
-    allData = result.data;
-    document.getElementById('charFilter').innerHTML = '<option value="">全部角色</option>';
-    document.getElementById('rankFilter').innerHTML = '<option value="">全部名次</option>';
-    populateFilters(allData);
+    allDataBySource = { marathon: result.marathon || [], worldLink: result.worldLink || [] };
+    populateFilters(allDataBySource[activeSource]);
     renderTable();
-    document.getElementById('dataNote').textContent = `共 ${allData.length} 筆角色×名次組合的統計資料`;
+    document.getElementById('dataNote').textContent =
+      `一般活動 ${allDataBySource.marathon.length} 筆・World Link 章節 ${allDataBySource.worldLink.length} 筆`;
   }catch(err){
     console.error('載入分析資料失敗', err);
-    body.innerHTML = `<tr><td colspan="9" class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</td></tr>`;
   }
 }
 
+document.querySelectorAll('.source-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.source-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSource = btn.dataset.source;
+    populateFilters(allDataBySource[activeSource]);
+    renderTable();
+  });
+});
+
+document.getElementById('unitFilter').addEventListener('change', renderTable);
 document.getElementById('charFilter').addEventListener('change', renderTable);
 document.getElementById('rankFilter').addEventListener('change', renderTable);
 document.getElementById('sortBy').addEventListener('change', renderTable);
