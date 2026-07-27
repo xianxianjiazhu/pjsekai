@@ -46,7 +46,6 @@
   }
   .event-name{color:var(--text-dim);font-size:14px;margin:0 0 22px;}
 
-  /* ---- Hero: countdown ---- */
   .hero{
     background:linear-gradient(155deg, var(--bg-panel-2), var(--bg-panel));
     border:1px solid var(--line);
@@ -88,7 +87,6 @@
   .status-pill.live{color:var(--green);border-color:rgba(5,150,105,0.35);}
   .status-pill.snap{color:var(--amber);border-color:rgba(217,119,6,0.35);}
 
-  /* ---- Section headers ---- */
   .section-title{
     display:flex;align-items:center;gap:10px;
     margin:30px 0 12px;
@@ -99,7 +97,6 @@
   }
   .section-title h2{font-size:16px;margin:0;font-weight:600;}
 
-  /* ---- Freshness ---- */
   .freshness{
     display:flex;gap:16px;flex-wrap:wrap;
     font-family:'JetBrains Mono',monospace;
@@ -108,9 +105,8 @@
   }
   .freshness b{color:var(--text);font-weight:600;}
 
-  /* ---- World Link 章節分頁籤 ---- */
   .wl-tabs{
-    display:none; /* 預設隱藏，偵測到 World Link 活動才顯示 */
+    display:none;
     gap:6px;
     flex-wrap:wrap;
     background:var(--bg-panel-2);
@@ -159,7 +155,6 @@
   }
   .wl-banner.active{ display:block; }
 
-  /* ---- 欄位精簡顯示（手機預設開啟，隱藏次要欄位） ---- */
   .table-panel table.compact th:nth-child(3),
   .table-panel table.compact td:nth-child(3),
   .table-panel table.compact th:nth-child(4),
@@ -195,7 +190,6 @@
   }
   .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
 
-  /* ---- Table ---- */
   .table-panel{
     background:var(--bg-panel);
     border:1px solid var(--line);
@@ -227,7 +221,6 @@
   .mono{font-family:'JetBrains Mono',monospace;}
   .dim{color:var(--text-dim);}
 
-  /* ---- Calculator ---- */
   .calc-panel{
     background:var(--bg-panel);
     border:1px solid var(--line);
@@ -359,9 +352,11 @@
     </table>
   </div>
   <div class="result-note">
-    <p style="margin:0 0 8px;">1. 標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。</p>
-    <p style="margin:0 0 8px;">2. 這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</p>
-    <p style="margin:0;">3. 標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</p>
+    <ol style="margin:0;padding-left:20px;line-height:1.7;">
+      <li>標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。</li>
+      <li>這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</li>
+      <li>標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</li>
+    </ol>
   </div>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
@@ -377,7 +372,6 @@
       </div>
     </div>
     <div class="quickfill" id="quickfill">
-      <!-- 由 JS 依即時排名資料動態產生「套用第N名時速」按鈕 -->
     </div>
     <div class="result">
       <div>
@@ -433,7 +427,6 @@
 </div>
 
 <script>
-// ---- 精彩片段結算時間 ----
 let CHECKPOINT_DATE = null;
 
 let liveData = null;
