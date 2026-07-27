@@ -350,7 +350,7 @@
           <th>近24h時速</th>
           <th>結算前預估增加</th>
           <th>預測分數線</th>
-          <th>同角色歷史平均</th>
+          <th>同角色歷史中位數</th>
         </tr>
       </thead>
       <tbody id="rankTableBody">
@@ -361,7 +361,7 @@
   <div class="result-note">
     <p style="margin:0 0 8px;">1. 標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用 border_log 每15分鐘的紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。</p>
     <p style="margin:0 0 8px;">2. 這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</p>
-    <p style="margin:0;">3. 標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史平均」，預測分數線會用信心度混合「即時外推」跟「歷史平均」（信心度越低，越參考歷史平均；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史平均。</p>
+    <p style="margin:0;">3. 標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</p>
   </div>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
@@ -434,16 +434,14 @@
 
 <script>
 // ---- 精彩片段結算時間 ----
-// 每次抓到即時資料時會用當期 API 回傳的 aggregate_at（精彩片段結算時間點）更新這個值，
-// 所以同一份網頁換到下一期活動也能自動對到正確的結算時間，不用手動改。
-let CHECKPOINT_DATE = null; // 還沒抓到真實資料前先是 null，不要顯示寫死的舊日期
+let CHECKPOINT_DATE = null;
 
-let liveData = null;      // 成功取得的即時資料會存這（top100 原始物件）
-let currentRanks = [];    // 目前顯示中的名次清單（top100 + border 合併後）
-let fullTop100Raw = [];   // 完整 T1~T100 簡化資料（rank/score/speed），供「輸入名次查詢」精確比對用
-let fullTop100PlayersRaw = []; // 完整 T1~T100 原始玩家物件（含1h/3h/24h統計、玩家ID等），供「輸入ID查詢」使用
-let lastFetchedAt = null; // 上次成功抓到資料的時間
-let lastCalcAt = null;    // 上次重新計算預測的時間
+let liveData = null;
+let currentRanks = [];
+let fullTop100Raw = [];
+let fullTop100PlayersRaw = [];
+let lastFetchedAt = null;
+let lastCalcAt = null;
 
 const MILESTONE_RANKS = [10,20,30,40,50,100,200,300,400,500,1000,2000,3000,4000,5000,10000,20000,30000,50000,100000];
 
@@ -474,7 +472,7 @@ function updateCountdown(){
     document.getElementById('cdM').textContent = '--';
     document.getElementById('cdS').textContent = '--';
     checkpointPill.style.display = 'none';
-    return 0; // 回傳0而不是null，避免後續乘法算出NaN；等真的資料進來就會是正確數字
+    return 0;
   }
   const now = new Date();
   let diff = CHECKPOINT_DATE - now;
@@ -495,7 +493,7 @@ function updateCountdown(){
   document.getElementById('cdH').textContent = String(h).padStart(2,'0');
   document.getElementById('cdM').textContent = String(m).padStart(2,'0');
   document.getElementById('cdS').textContent = String(s).padStart(2,'0');
-  return (CHECKPOINT_DATE - now) / 3600000; // 回傳剩餘小時數
+  return (CHECKPOINT_DATE - now) / 3600000;
 }
 
 function renderCheckpointStr(){
@@ -508,7 +506,7 @@ function renderCheckpointStr(){
     new Intl.DateTimeFormat('zh-TW', opts).format(CHECKPOINT_DATE);
 }
 
-let charStats = null; // { character, sampleCount, avgByRank }
+let charStats = null;
 
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
@@ -609,10 +607,6 @@ function pickReferenceRanks(top100arr, hoursSinceStart){
   return top100arr
     .filter(p => wanted.includes(p.rank))
     .map(p => {
-      // 不再採用 HiSekai 的 last_24h_stats.speed——那是「追蹤個人」的時速，
-      // 同一名次換人時容易暴衝/驟降，而且活動不到24h時它本質上也只是「開始至今平均」，
-      // 跟我們自己算的均速沒有本質差異。統一交給 applyRecentSpeeds()（追蹤排名門檻）處理，
-      // 邏輯跟 T200 以上的 border 名次一致，不會再出現名次高低順序顛倒的情況。
       const useAverage = !!hoursSinceStart;
       return {
         rank: p.rank,
@@ -627,10 +621,8 @@ function pickReferenceRanks(top100arr, hoursSinceStart){
 
 const API_URL = 'https://api.hisekai.org/tw/event/live/top100';
 
-// ★ 你的 Apps Script 代理網址（優先使用，沒有 CORS 問題，也能同時拿 border 資料）
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
 
-// 依序嘗試：Apps Script 代理 -> 直連 -> 公開 CORS 代理們 -> 全部失敗才用快照
 const FETCH_STRATEGIES = [
   { label: 'Apps Script 代理', url: `${APPS_SCRIPT_URL}?mode=proxy&target=top100` },
   { label: '直連',             url: API_URL },
@@ -638,7 +630,6 @@ const FETCH_STRATEGIES = [
   { label: 'allorigins',       url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_URL) },
 ];
 
-// 幫 fetch 加上明確逾時，避免某個連線方式「卡住不動」拖累後面所有嘗試
 async function fetchWithTimeout(url, options = {}, timeoutMs = 5000){
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -663,7 +654,6 @@ async function tryFetchLive(){
     }
   }
 
-  // HiSekai 那幾種方式都失敗了，最後試一個完全獨立的資料源（sekai.best，不同團隊維運，跟HiSekai無關）
   document.getElementById('dataNote').textContent = '正在嘗試連線（sekai.best，獨立備援）…';
   const sekaiBestData = await trySekaiBestFetch();
   if(sekaiBestData) return { data: sekaiBestData, via: 'sekai.best（獨立資料源）' };
@@ -671,8 +661,6 @@ async function tryFetchLive(){
   return null;
 }
 
-// sekai.best：跟 HiSekai 完全獨立的另一個社群資料源，用來組成跟 HiSekai 格式一致的物件，
-// 這樣後面 loadLive() 的處理邏輯不用另外寫一套
 async function trySekaiBestFetch(){
   try{
     const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=sekaibest`, { cache: 'no-store' }, 8000);
@@ -703,9 +691,7 @@ async function trySekaiBestFetch(){
   }
 }
 
-// 用 border_log 累積的紀錄算出「近期實測時速」，覆蓋掉均速估算（isAverage:true 的名次）
-// 失敗就靜靜跳過，維持原本的均速估算，不影響主流程
-let cachedRecentSpeeds = null; // { eventId, speeds } — 同一次 loadLive 週期內共用，避免重複打 API
+let cachedRecentSpeeds = null;
 
 async function fetchRecentSpeeds(eventId){
   try{
@@ -725,7 +711,6 @@ function overrideWithRecentSpeeds(ranks, speeds){
   return ranks.map(r => {
     const measured = speeds[r.rank];
     if(measured === undefined || measured === null) return r;
-    // 只覆蓋掉本來就是估算值的名次
     if(r.isAverage){
       return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
     }
@@ -741,7 +726,6 @@ async function applyRecentSpeeds(ranks, eventId){
   return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
 
-// 額外抓 border 端點（T1000/2000/5000...），失敗就靜靜跳過，不影響主表
 async function tryFetchBorder(){
   try{
     const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' }, 5000);
@@ -754,7 +738,6 @@ async function tryFetchBorder(){
   }
 }
 
-// ---- 離線備援：連不上即時 API 時，依序嘗試 border_log(Sheet，大家共用、較新) → 本機快取(localStorage，只有自己看得到) ----
 const CACHE_KEY = 'pjsk_last_snapshot';
 
 function safeGetCache(){
@@ -767,7 +750,7 @@ function safeSetCache(snapshot){
 function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   const sourceLabel = source === 'borderlog' ? 'border_log' : '本機瀏覽器快取';
   document.getElementById('eventName').textContent = `第 ${eventId} 期・${eventName}（非即時資料・來源：${sourceLabel}）`;
-  renderAll(ranks, false); // isLive=false 會顯示琥珀色的「備援快照資料」狀態徽章
+  renderAll(ranks, false);
   document.getElementById('warmupWarning').style.display = 'none';
   const note = document.createElement('p');
   note.id = 'staleCacheNote';
@@ -779,7 +762,6 @@ function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   if(existing) existing.remove();
   document.getElementById('warmupWarning').insertAdjacentElement('afterend', note);
 
-  // 歷史平均查的是歷史資料庫，跟現在連不連得上即時 API 無關，備援模式一樣能正常顯示
   loadCharacterStats(eventId);
 }
 
@@ -829,12 +811,9 @@ async function loadLive(){
   let shownFallback = false;
   while(!result){
     attempt++;
-    // 退避機制：重試間隔隨失敗次數拉長（3秒起跳，每次+5秒，上限30秒），
-    // 避免長時間掛掉時對 Apps Script／HiSekai／sekai.best 造成不必要的高頻請求
     const delaySec = Math.min(3 + (attempt - 2) * 5, 30);
     document.getElementById('dataNote').textContent =
       `連線未成功，可能是 Apps Script 剛冷啟動或 API 暫時無法使用，${delaySec} 秒後自動重試（第 ${attempt} 次）…`;
-    // 連續失敗幾次之後，先顯示非即時的備援資料，總比空白畫面好
     if(!shownFallback && attempt >= 3){
       shownFallback = await showFallbackIfAvailable();
     }
@@ -854,15 +833,11 @@ async function loadLive(){
 
 const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
-    // 活動開始至今的平均時速，給 top100(近24h時速為0時) 與 border(本來就沒有近期時速) 共用
     const hoursSinceStart = data.start_at
       ? Math.max(0.01, (new Date() - new Date(data.start_at)) / 3600000)
       : null;
 
     const top100Ranks = pickReferenceRanks(data.player_top_100_rankings || [], hoursSinceStart);
-    // 跟 pickReferenceRanks 同樣邏輯：不信任 HiSekai 的個人近24h時速，統一改用開始至今平均當基準，
-    // 之後有 recent_speed（排名門檻）資料會再覆蓋掉，這樣「輸入名次查詢」查 T1~T100 任何名次
-    // 都能跟主表格邏輯一致，不會查到用個人時速算出來的不一致數字
     fullTop100Raw = (data.player_top_100_rankings || [])
       .map(p => ({
         rank: p.rank,
@@ -872,8 +847,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
         confidenceHours: hoursSinceStart || undefined,
       }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
-    // 如果這次拿到的資料裡已經附帶 border 資料（例如 sekai.best，一次給全部），直接用，
-    // 不要另外去問 HiSekai（HiSekai 掛掉時，另外問只會拿到空的，把已經有的資料蓋掉）
     const borderRaw = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
       ? data.player_border_rankings
       : await tryFetchBorder();
@@ -885,7 +858,7 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
         score: p.score,
         speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
         available: true,
-        isAverage: true, // 標記此時速是「開始至今平均」，非近1h/3h/24h實測
+        isAverage: true,
         confidenceHours: hoursSinceStart || undefined,
       }));
     const foundSet = new Set(foundBorderRanks.map(r => r.rank));
@@ -895,12 +868,11 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     const borderRanks = [...foundBorderRanks, ...missingBorderRanks];
     let ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
 
-    // 用 border_log 累積的紀錄算「近期實測時速」，覆蓋掉不夠準的「開始至今平均」估算
-    cachedRecentSpeeds = null; // 每次重新整理都要抓最新的，不要沿用上次快取
+    cachedRecentSpeeds = null;
     ranks = await applyRecentSpeeds(ranks, data.id);
     fullTop100Raw = await applyRecentSpeeds(fullTop100Raw, data.id);
 
-    wlOverallRanks = ranks; // 記住「總榜」這份資料，World Link 分頁籤切回總榜時要用
+    wlOverallRanks = ranks;
     renderAll(ranks, true);
     safeSetCache({
       eventId: data.id,
@@ -915,8 +887,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
     setupWorldLink(data);
 
-    // 「開局衝刺偏高」這套邏輯是從一般活動觀察來的，WL 章節節奏完全不同（前24h本來就是主戰場，
-    // 不是短暫衝刺），而且我們還沒有 WL 的歷史資料可以驗證，先不要套用這個警示，避免誤導
     const isWorldLink = wlChapters.length > 0;
     document.getElementById('warmupWarning').style.display =
       (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
@@ -925,14 +895,8 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
   }
 }
 
-// ===== World Link 章節分頁籤（框架先用假資料測排版，等真的遇到WL活動再換成真實API欄位）=====
-
-// ⚠ 開發測試開關：true 時會用假資料模擬 World Link 活動，方便先測排版。
-// 真的遇到 World Link 活動時，把這個改成 false，並確認下面 setupWorldLink() 裡
-// 讀取 data.chapters 的欄位名稱跟真實 API 回傳格式一致（目前是用文件推測的欄位名）。
 const WL_MOCK_TEST = false;
 
-// 角色編號對照表（依你提供的 world_link 序號整理）
 const CHARACTER_MAP = {
   1:'星乃一歌', 2:'天馬咲希', 3:'望月穗波', 4:'日野森志步', 5:'花里實乃理',
   6:'桐谷遙', 7:'桃井愛莉', 8:'日野森雫', 9:'小豆澤心羽', 10:'白石杏',
@@ -941,13 +905,12 @@ const CHARACTER_MAP = {
   21:'初音未來', 22:'鏡音鈴', 23:'鏡音連', 24:'巡音流歌', 25:'MEIKO', 26:'KAITO',
 };
 
-let wlOverallRanks = [];   // 總榜資料（其實就是一般 marathon 那套邏輯算出來的 ranks）
-let wlChapters = [];       // 各章節資料：[{ id, name, ranks }]
+let wlOverallRanks = [];
+let wlChapters = [];
 let activeWlTab = 'overall';
 
 function buildMockChapters(){
-  // 假資料：模擬 4 個章節角色，分數用總榜的等比縮小製造出差異，純粹測排版用
-  const mockIds = [12, 11, 9, 10]; // 青柳冬彌／東雲彰人／小豆澤心羽／白石杏，順序模擬「本期章節順序」
+  const mockIds = [12, 11, 9, 10];
   return mockIds.map((id, idx) => ({
     character: id,
     rankings: MILESTONE_RANKS.filter(r => r <= 100).map(r => ({
@@ -963,12 +926,11 @@ function buildMockChapters(){
 }
 
 function buildChapterRanks(chapter){
-  // 章節內的資料結構跟一般活動的 top100/border 概念類似，這裡沿用同一套組裝邏輯
   const top = (chapter.rankings || []).map(p => ({
     rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0,
   }));
   const border = (chapter.borderRankings || []).map(p => ({
-    rank: p.rank, score: p.score, speed: 0, isAverage: true, // 章節榜目前假設沒有時速細節，先用0，實測後再調整
+    rank: p.rank, score: p.score, speed: 0, isAverage: true,
   }));
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
@@ -1024,7 +986,6 @@ function switchWlTab(key){
     const chapter = wlChapters.find(c => String(c.id) === key);
     if(!chapter) return;
     renderAll(chapter.ranks, true);
-    // TODO：章節榜的「同角色歷史平均」要接 wl_historical_scores，目前先清空避免顯示錯誤來源的數字
     charStats = null;
     document.getElementById('charStatsNote').style.display = 'none';
     if(currentRanks.length) buildRankTable(currentRanks, updateCountdown());
@@ -1043,9 +1004,8 @@ async function loadCharacterStats(eventId){
     }else{
       charStats = stats;
       note.style.display = 'block';
-      note.textContent = `本期主打：${stats.character}（過去主打過 ${stats.sampleCount} 次一般活動）——「同角色歷史平均」欄位是這些過去活動在對應名次的最終分數平均值，可以拿來對照這次的預測分數線是偏高還是偏低。`;
+      note.textContent = `本期主打：${stats.character}（過去主打過 ${stats.sampleCount} 次一般活動）——「同角色歷史中位數」欄位是這些過去活動在對應名次的最終分數中位數，可以拿來對照這次的預測分數線是偏高還是偏低。`;
     }
-    // 重繪表格帶入歷史平均欄位
     const remainHours = updateCountdown();
     if(currentRanks.length) buildRankTable(currentRanks, remainHours);
   }catch(err){
@@ -1055,7 +1015,6 @@ async function loadCharacterStats(eventId){
   }
 }
 
-// ---- 防止 loadLive 重疊執行（例如自動刷新剛好碰上還在無限重試中）----
 let isLoadingLive = false;
 async function loadLiveGuarded(){
   if(isLoadingLive) return;
@@ -1069,13 +1028,10 @@ async function loadLiveGuarded(){
 
 document.getElementById('refreshBtn').addEventListener('click', loadLiveGuarded);
 
-// 每60秒自動刷新一次即時分數；實際打不打得到外部API由 Apps Script 的快取層決定，
-// 不會因為這裡刷新頻率設定得比較密就真的暴增外部請求量
 setInterval(loadLiveGuarded, 60000);
 document.getElementById('curScore').addEventListener('input', calcCustom);
 document.getElementById('curSpeed').addEventListener('input', calcCustom);
 
-// ---- 欄位精簡顯示：手機(寬度<640px)預設關閉次要欄位，電腦預設全部顯示 ----
 function updateColToggleLabel(isCompact){
   document.getElementById('colToggleBtn').textContent = isCompact ? '☰ 精簡顯示' : '☰ 完整顯示';
 }
@@ -1089,8 +1045,6 @@ document.getElementById('colToggleBtn').addEventListener('click', () => {
   setCompactTable(!isCompact);
 });
 
-// ---- 生成分享圖片：banner + 活動標題 + 各里程碑目前分數/預測分數線，畫在Canvas上輸出成PNG ----
-// ---- 共用：用信心度混合即時外推與歷史平均，算出預測分數線（buildRankTable/lookupRank/分享圖片都共用這套邏輯）----
 function predictWithConfidence(r, remainHours, histAvgNum){
   const confidence = r.confidenceHours ? Math.min(r.confidenceHours, 24) / 24 : 1;
   const rawGain = Math.max(0, r.speed * remainHours);
@@ -1104,7 +1058,6 @@ function predictWithConfidence(r, remainHours, histAvgNum){
   return { gain, predicted, confidence };
 }
 
-// ---- 共用：在Canvas上畫banner+活動標題+結算時間，回傳畫完後的y座標 ----
 function drawShareHeader(ctx, width){
   const bannerImg = document.getElementById('eventBanner');
   const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
@@ -1186,7 +1139,6 @@ async function generateShareImage(){
     const rowHeight = 38;
     const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
 
-    // 先量測header高度（用暫時canvas量測banner比例）
     const probeCanvas = document.createElement('canvas');
     probeCanvas.width = width; probeCanvas.height = 10;
     const probeCtx = probeCanvas.getContext('2d');
@@ -1265,7 +1217,6 @@ async function generateShareImage(){
 }
 document.getElementById('shareImageBtn').addEventListener('click', generateShareImage);
 
-// ---- 輸入名次查詢：生成單一名次的分享圖片 ----
 async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolated, remainHours){
   const btn = document.getElementById('lookupShareBtn');
   const originalLabel = btn.textContent;
@@ -1280,7 +1231,7 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
       ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
       : 0;
     const headerHeight = bannerHeightProbe + 110;
-    const bodyHeight = 220; // 名次/分數/預測分數線/信心度/歷史平均 這幾行的高度
+    const bodyHeight = 220;
     const height = headerHeight + bodyHeight + 40;
 
     const canvas = document.createElement('canvas');
@@ -1301,7 +1252,6 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
 
     const { gain, predicted, confidence } = predictWithConfidence(entry, remainHours, histAvgRaw);
 
-    // 名次 + 目前分數
     ctx.textAlign = 'left';
     ctx.font = 'bold 22px monospace';
     ctx.fillStyle = '#4f46e5';
@@ -1312,7 +1262,6 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
     ctx.fillText(fmtNum(entry.score) + ' 分', width - 20, y + 18);
     y += 40;
 
-    // 預測分數線（大字）
     ctx.textAlign = 'left';
     ctx.font = '12px monospace';
     ctx.fillStyle = '#6b7280';
@@ -1323,7 +1272,6 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
     ctx.fillText(fmtNum(predicted), 20, y);
     y += 30;
 
-    // 時速 / 信心度
     ctx.font = '12px monospace';
     ctx.fillStyle = '#6b7280';
     let speedLine = `時速約 ${fmtNum(entry.speed)}/h`;
@@ -1331,9 +1279,8 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
     ctx.fillText(speedLine, 20, y);
     y += 24;
 
-    // 同角色歷史平均
     if(histAvgRaw !== null){
-      ctx.fillText(`同角色歷史平均：${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}`, 20, y);
+      ctx.fillText(`同角色歷史中位數：${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}`, 20, y);
       y += 24;
     }
 
@@ -1356,8 +1303,6 @@ renderCheckpointStr();
 setInterval(()=>{
   updateCountdown();
   updateFreshnessDisplay();
-  // 每次倒數更新時，用目前已載入的完整名次清單重算預測，維持即時感，不重新打 API
-  // 如果還在重試連線、尚未有任何資料，就先不畫表格
   if(currentRanks.length){
     const remainHours = CHECKPOINT_DATE ? (CHECKPOINT_DATE - new Date())/3600000 : 0;
     buildRankTable(currentRanks, remainHours);
@@ -1365,14 +1310,11 @@ setInterval(()=>{
   calcCustom();
 }, 1000);
 
-// ---- 主動回報頁面高度給外層 index.html（如果是被 iframe 嵌入的話）----
-// 只在高度「真的變化」時才回報，不要無條件每秒硬報一次，
-// 避免跟外層index.html互相搶著設定高度、產生回饋迴圈（越滾越大或畫面一直跳動）
 let lastReportedHeight = 0;
 function reportHeightToParent(){
-  if(window.parent === window) return; // 不是被嵌入的情況就不用回報
+  if(window.parent === window) return;
   const h = document.documentElement.scrollHeight;
-  if(Math.abs(h - lastReportedHeight) < 5) return; // 差距太小（例如字體渲染誤差）就不重複回報
+  if(Math.abs(h - lastReportedHeight) < 5) return;
   lastReportedHeight = h;
   window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
 }
@@ -1395,16 +1337,13 @@ function lookupRank(){
   let entry = null;
   let isInterpolated = false;
 
-  // 1. T1~T100 有完整連續資料，直接精確比對
   if(rank <= 100){
     entry = fullTop100Raw.find(r => r.rank === rank);
   }
-  // 2. 剛好命中已知的里程碑名次
   if(!entry){
     const known = currentRanks.find(r => r.rank === rank && r.available !== false && r.score !== null);
     if(known) entry = known;
   }
-  // 3. 都沒有的話，用最接近的上下兩個已知資料點做對數內插估算
   if(!entry){
     const pool = [...fullTop100Raw, ...currentRanks.filter(r => r.available !== false && r.score !== null)]
       .filter((r,i,arr) => arr.findIndex(x => x.rank === r.rank) === i)
@@ -1451,8 +1390,6 @@ function lookupRank(){
         histAvgRaw = Math.exp(ls + (us - ls) * ratio);
         histIsInterpolated = true;
       }
-      // 只有兩側都有資料時才做內插；只有單邊資料代表超出追蹤範圍（例如T1小於最小里程碑T10），
-      // 直接借用單邊數字會失真，寧可不顯示，不要生一個誤導的假數字
     }
   }
   const charLabel = charStats ? `（${charStats.character}：過去 ${charStats.sampleCount} 次）` : '';
@@ -1467,7 +1404,6 @@ function lookupRank(){
       ? `<span class="dim" style="font-size:11px;">（近${entry.recentWindowHours >= 20 ? '24' : Math.round(entry.recentWindowHours)}h實測時速）</span>${confidenceNote}`
       : (entry.isAverage ? `<span class="dim" style="font-size:11px;">（均速估算）</span>${confidenceNote}` : '');
 
-  // T1~T100 才有完整玩家資料（名字、1h/3h/24h 細節），T100 以外官方沒有提供
   const fullPlayer = rank <= 100 ? fullTop100PlayersRaw.find(p => p.rank === rank) : null;
 
   let html = '';
@@ -1504,13 +1440,12 @@ function lookupRank(){
 
   html += `
     <div class="freshness" style="margin-top:10px;">
-      <span>同角色歷史平均：<b>${histAvgRaw !== null ? `${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}${charLabel ? '　' + charLabel : ''}` : '—（尚無歷史比對資料）'}</b></span>
+      <span>同角色歷史中位數：<b>${histAvgRaw !== null ? `${fmtNum(histAvgRaw)}${histIsInterpolated ? '（內插估算）' : ''}${charLabel ? '　' + charLabel : ''}` : '—（尚無歷史比對資料）'}</b></span>
     </div>
   `;
 
   resultDiv.innerHTML = html;
 
-  // 記住這次查詢結果，供「生成分享圖片」使用
   lastLookup = { rank, entry, histAvgRaw, histIsInterpolated, remainHours };
   document.getElementById('lookupShareBtn').style.display = 'inline-flex';
 }
@@ -1535,7 +1470,6 @@ function statBlock(title, stats){
   `;
 }
 
-// ---- 記住上次查詢過的玩家 ID（用 localStorage；在 Claude 預覽環境可能無效，部署到實際網站後才會生效）----
 const LAST_ID_KEY = 'pjsk_last_lookup_id';
 
 function safeGetLastId(){
@@ -1592,7 +1526,6 @@ function lookupPlayerId(){
     return;
   }
 
-  // 查到就記住這個 ID，下次打開頁面可以一鍵帶入
   safeSetLastId(id);
   refreshLastIdButton();
 
@@ -1661,7 +1594,6 @@ async function generateIdShareImage(player){
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
     y += 30;
 
-    // 名次 + 名字 + 分數
     ctx.textAlign = 'left';
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#4f46e5';
