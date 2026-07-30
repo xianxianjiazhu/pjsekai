@@ -296,10 +296,8 @@
 <div class="wrap">
 
   <h1>分數線預測</h1>
-  <img id="eventBanner" src="assest/event_banner.jpg" alt="活動橫幅"
-       style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);"
-       onload="this.style.display='block';"
-       onerror="this.style.display='none';">
+  <img id="eventBanner" src="" alt="活動橫幅"
+       style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);">
   <p class="event-name" id="eventName">載入活動資訊中…</p>
 
   <div class="hero">
@@ -455,6 +453,25 @@ function updateFreshnessDisplay(){
 
 function fmtNum(n){
   return Math.round(n).toLocaleString('zh-TW');
+}
+
+// 依活動期數自動選擇對應banner，找不到就退回通用banner，兩個都沒有就隱藏
+function setEventBanner(eventId){
+  const bannerImg = document.getElementById('eventBanner');
+  const specificSrc = `assest/event_banner_${eventId}.jpg`;
+  const fallbackSrc = 'assest/event_banner.jpg';
+
+  bannerImg.onload = function(){ bannerImg.style.display = 'block'; };
+  bannerImg.onerror = function(){
+    if(bannerImg.src.includes(`event_banner_${eventId}.jpg`)){
+      // 該期專屬banner還沒上傳，退回通用banner
+      bannerImg.onerror = function(){ bannerImg.style.display = 'none'; };
+      bannerImg.src = fallbackSrc;
+    }else{
+      bannerImg.style.display = 'none';
+    }
+  };
+  bannerImg.src = specificSrc;
 }
 
 function updateCountdown(){
@@ -743,6 +760,7 @@ function safeSetCache(snapshot){
 function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   const sourceLabel = source === 'borderlog' ? 'border_log' : '本機瀏覽器快取';
   document.getElementById('eventName').textContent = `第 ${eventId} 期・${eventName}（非即時資料・來源：${sourceLabel}）`;
+  setEventBanner(eventId);
   renderAll(ranks, false);
   document.getElementById('warmupWarning').style.display = 'none';
   const note = document.createElement('p');
@@ -823,6 +841,7 @@ async function loadLive(){
     }
     document.getElementById('eventName').textContent =
       `第 ${data.id} 期・${data.name}`;
+    setEventBanner(data.id);
 
 const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
