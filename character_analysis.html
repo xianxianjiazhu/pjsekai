@@ -208,6 +208,15 @@
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
 
+// 固定角色順序（依照遊戲內角色編號排列，不用字母排序）
+const CHARACTER_ORDER = [
+  '星乃一歌', '天馬咲希', '望月穗波', '日野森志步', '花里實乃理',
+  '桐谷遙', '桃井愛莉', '日野森雫', '小豆澤心羽', '白石杏',
+  '東雲彰人', '青柳冬彌', '天馬司', '鳳笑夢', '草薙寧寧',
+  '神代類', '宵崎奏', '朝比奈真冬', '東雲繪名', '曉山瑞希',
+  '初音未來', '鏡音鈴', '鏡音連', '巡音流歌', 'MEIKO', 'KAITO',
+];
+
 let allDataBySource = { marathon: [], worldLink: [] };
 let activeSource = 'marathon';
 let currentDetailCharacter = null;
@@ -239,7 +248,9 @@ function populateFilters(data){
     unitFilter.appendChild(opt);
   });
 
-  const characters = [...new Set(data.map(d => d.character))].sort();
+  // 依照固定順序排列，資料裡有出現的角色才會列出（沒出現的自動跳過）
+  const presentCharacters = new Set(data.map(d => d.character));
+  const characters = CHARACTER_ORDER.filter(c => presentCharacters.has(c));
   characters.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c;
@@ -277,7 +288,12 @@ function renderTable(){
   }else if(sortBy === 'cv_desc'){
     rows = [...rows].sort((a,b) => b.cv - a.cv);
   }else{
-    rows = [...rows].sort((a,b) => a.character.localeCompare(b.character) || a.rank - b.rank);
+    rows = [...rows].sort((a,b) => {
+      const ai = CHARACTER_ORDER.indexOf(a.character);
+      const bi = CHARACTER_ORDER.indexOf(b.character);
+      if(ai !== bi) return ai - bi;
+      return a.rank - b.rank;
+    });
   }
 
   const body = document.getElementById('analysisBody');
@@ -461,7 +477,6 @@ document.getElementById('refreshBtn').addEventListener('click', loadData);
 let lastReportedHeight = 0;
 function reportHeightToParent(){
   if(window.parent === window) return;
-  // 用 setTimeout 讓 DOM 更新完再量測，避免量到舊高度
   setTimeout(() => {
     const h = document.documentElement.scrollHeight;
     if(Math.abs(h - lastReportedHeight) < 5) return;
