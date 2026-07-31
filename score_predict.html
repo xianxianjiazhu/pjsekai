@@ -736,16 +736,21 @@ async function applyRecentSpeeds(ranks, eventId){
   return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
 
-async function tryFetchBorder(){
-  try{
-    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' }, 5000);
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    return Array.isArray(data.player_border_rankings) ? data.player_border_rankings : [];
-  }catch(err){
-    console.warn('border 資料取得失敗（可能尚未有精彩片段快照，或欄位與預期不同）', err);
-    return [];
+async function tryFetchBorder(retries = 2){
+  for(let i = 0; i <= retries; i++){
+    try{
+      const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`, { cache: 'no-store' }, 5000);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if(Array.isArray(data.player_border_rankings)) return data.player_border_rankings;
+      throw new Error('資料格式異常');
+    }catch(err){
+      console.warn(`border 資料取得失敗（第${i+1}次嘗試，${err.name === 'AbortError' ? '逾時5秒' : err.message}）`, err);
+      if(i < retries) await new Promise(r => setTimeout(r, 1000)); // 重試前稍微等一下，避免連續轟炸
+    }
   }
+  console.warn('border 資料重試多次仍失敗，這次沒有border資料');
+  return [];
 }
 
 const CACHE_KEY = 'pjsk_last_snapshot';
