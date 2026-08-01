@@ -45,15 +45,50 @@
     gap:6px;
   }
   .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-  .table-panel{
+
+  /* ---- 名次分組摺疊 ---- */
+  .rank-group{
     background:var(--bg-panel);
     border:1px solid var(--line);
     border-radius:14px;
-    overflow-x:auto;
+    margin-bottom:10px;
+    overflow:hidden;
     box-shadow:0 1px 3px rgba(0,0,0,0.04);
-    margin-bottom:16px;
   }
-  .table-panel thead th{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
+  .rank-group-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 16px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .rank-group-header:hover{background:var(--bg-panel-2);}
+  .rank-group-title{
+    font-weight:700;
+    font-size:14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .rank-group-arrow{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--cyan);
+    transition:transform .15s;
+    display:inline-block;
+  }
+  .rank-group.expanded .rank-group-arrow{transform:rotate(90deg);}
+  .rank-group-count{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .rank-group-body{display:none;}
+  .rank-group.expanded .rank-group-body{display:block;}
+
+  .table-panel{
+    overflow-x:auto;
+  }
   table{width:100%;border-collapse:collapse;font-size:13px;min-width:700px;}
   th,td{padding:10px 12px;text-align:right;white-space:nowrap;}
   th:first-child,td:first-child{text-align:left;}
@@ -62,6 +97,8 @@
     font-size:11px;color:var(--text-dim);
     letter-spacing:.05em;font-weight:500;
     border-bottom:1px solid var(--line);
+    border-top:1px solid var(--line);
+    background:var(--bg-panel-2);
   }
   tbody tr{border-bottom:1px solid var(--line);}
   tbody tr:last-child{border-bottom:none;}
@@ -111,6 +148,7 @@
       <li><strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。</li>
       <li><strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。</li>
       <li>點角色名稱可以進一步用「次要角色」篩選重新計算中位數，看搭配特定角色時分數有沒有明顯不同（樣本數少時參考價值較低，請留意樣本數）。</li>
+      <li>下方名次分組預設是收合的，點標題可以展開查看該區間的詳細資料。</li>
     </ol>
   </div>
 
@@ -129,9 +167,6 @@
         <select id="charFilter">
           <option value="">全部角色</option>
         </select>
-        <select id="rankFilter">
-          <option value="">全部名次</option>
-        </select>
         <select id="sortBy">
           <option value="default">預設排序（角色→名次）</option>
           <option value="trend_desc">趨勢%：高到低</option>
@@ -145,26 +180,7 @@
       </div>
     </div>
 
-    <div class="table-panel">
-      <table id="analysisTable">
-        <thead>
-          <tr>
-            <th>角色</th>
-            <th>名次</th>
-            <th>樣本數</th>
-            <th>中位數</th>
-            <th>最小值</th>
-            <th>最大值</th>
-            <th>變異係數%</th>
-            <th>最近3期中位數</th>
-            <th>趨勢%</th>
-          </tr>
-        </thead>
-        <tbody id="analysisBody">
-          <tr><td colspan="9" class="status-msg">載入資料中…</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <div id="rankGroupsWrap"></div>
   </div>
 
   <!-- 單一角色詳細模式（次要角色互動篩選）-->
@@ -179,24 +195,26 @@
       </select>
       <span class="dim mono" id="detailSampleNote" style="font-size:12px;"></span>
     </div>
-    <div class="table-panel">
-      <table id="detailTable">
-        <thead>
-          <tr>
-            <th>名次</th>
-            <th>樣本數</th>
-            <th>中位數</th>
-            <th>最小值</th>
-            <th>最大值</th>
-            <th>變異係數%</th>
-            <th>最近3期中位數</th>
-            <th>趨勢%</th>
-          </tr>
-        </thead>
-        <tbody id="detailBody">
-          <tr><td colspan="8" class="status-msg">載入資料中…</td></tr>
-        </tbody>
-      </table>
+    <div class="rank-group expanded">
+      <div class="table-panel">
+        <table id="detailTable">
+          <thead>
+            <tr>
+              <th>名次</th>
+              <th>樣本數</th>
+              <th>中位數</th>
+              <th>最小值</th>
+              <th>最大值</th>
+              <th>變異係數%</th>
+              <th>最近3期中位數</th>
+              <th>趨勢%</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody">
+            <tr><td colspan="8" class="status-msg">載入資料中…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -208,7 +226,6 @@
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
 
-// 固定角色順序（依照遊戲內角色編號排列，不用字母排序）
 const CHARACTER_ORDER = [
   '星乃一歌', '天馬咲希', '望月穗波', '日野森志步', '花里實乃理',
   '桐谷遙', '桃井愛莉', '日野森雫', '小豆澤心羽', '白石杏',
@@ -217,9 +234,19 @@ const CHARACTER_ORDER = [
   '初音未來', '鏡音鈴', '鏡音連', '巡音流歌', 'MEIKO', 'KAITO',
 ];
 
+// 名次分組定義：跟 Apps Script 端 summarizePredictionAccuracyByRank 用的分組一致
+const RANK_GROUPS = [
+  { key: 'top',    label: 'T10-T100（頂尖排位）',   ranks: [10,20,30,40,50,100] },
+  { key: 'high',   label: 'T200-T500（高排位）',     ranks: [200,300,400,500] },
+  { key: 'midhigh',label: 'T1000-T2500（中高排位）', ranks: [1000,1500,2000,2500] },
+  { key: 'mid',    label: 'T3000-T5000（中排位）',   ranks: [3000,4000,5000] },
+  { key: 'mass',   label: 'T10000+（大眾排位）',     ranks: [10000,20000,30000,50000,100000] },
+];
+
 let allDataBySource = { marathon: [], worldLink: [] };
 let activeSource = 'marathon';
 let currentDetailCharacter = null;
+let expandedGroups = new Set(); // 記住哪些分組目前是展開的，切換篩選/分頁時維持
 
 function fmtNum(n){
   if(n === '' || n === null || n === undefined) return '—';
@@ -234,11 +261,9 @@ function fmtPct(n){
 function populateFilters(data){
   const unitFilter = document.getElementById('unitFilter');
   const charFilter = document.getElementById('charFilter');
-  const rankFilter = document.getElementById('rankFilter');
 
   unitFilter.innerHTML = '<option value="">全部團體</option>';
   charFilter.innerHTML = '<option value="">全部角色</option>';
-  rankFilter.innerHTML = '<option value="">全部名次</option>';
 
   const units = [...new Set(data.map(d => d.unit))].filter(Boolean).sort();
   units.forEach(u => {
@@ -248,7 +273,6 @@ function populateFilters(data){
     unitFilter.appendChild(opt);
   });
 
-  // 依照固定順序排列，資料裡有出現的角色才會列出（沒出現的自動跳過）
   const presentCharacters = new Set(data.map(d => d.character));
   const characters = CHARACTER_ORDER.filter(c => presentCharacters.has(c));
   characters.forEach(c => {
@@ -257,53 +281,28 @@ function populateFilters(data){
     opt.textContent = c;
     charFilter.appendChild(opt);
   });
+}
 
-  const ranks = [...new Set(data.map(d => d.rank))].sort((a,b) => a - b);
-  ranks.forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r;
-    opt.textContent = `T${r}`;
-    rankFilter.appendChild(opt);
+function sortRows(rows, sortBy){
+  if(sortBy === 'trend_desc'){
+    return rows.filter(d => d.trendPct !== '').sort((a,b) => b.trendPct - a.trendPct);
+  }
+  if(sortBy === 'trend_asc'){
+    return rows.filter(d => d.trendPct !== '').sort((a,b) => a.trendPct - b.trendPct);
+  }
+  if(sortBy === 'cv_desc'){
+    return [...rows].sort((a,b) => b.cv - a.cv);
+  }
+  return [...rows].sort((a,b) => {
+    const ai = CHARACTER_ORDER.indexOf(a.character);
+    const bi = CHARACTER_ORDER.indexOf(b.character);
+    if(ai !== bi) return ai - bi;
+    return a.rank - b.rank;
   });
 }
 
-function renderTable(){
-  const data = allDataBySource[activeSource] || [];
-  const unitSel = document.getElementById('unitFilter').value;
-  const charSel = document.getElementById('charFilter').value;
-  const rankSel = document.getElementById('rankFilter').value;
-  const sortBy = document.getElementById('sortBy').value;
-
-  let rows = data.filter(d => {
-    if(unitSel && d.unit !== unitSel) return false;
-    if(charSel && d.character !== charSel) return false;
-    if(rankSel && String(d.rank) !== rankSel) return false;
-    return true;
-  });
-
-  if(sortBy === 'trend_desc'){
-    rows = rows.filter(d => d.trendPct !== '').sort((a,b) => b.trendPct - a.trendPct);
-  }else if(sortBy === 'trend_asc'){
-    rows = rows.filter(d => d.trendPct !== '').sort((a,b) => a.trendPct - b.trendPct);
-  }else if(sortBy === 'cv_desc'){
-    rows = [...rows].sort((a,b) => b.cv - a.cv);
-  }else{
-    rows = [...rows].sort((a,b) => {
-      const ai = CHARACTER_ORDER.indexOf(a.character);
-      const bi = CHARACTER_ORDER.indexOf(b.character);
-      if(ai !== bi) return ai - bi;
-      return a.rank - b.rank;
-    });
-  }
-
-  const body = document.getElementById('analysisBody');
-  if(!rows.length){
-    body.innerHTML = `<tr><td colspan="9" class="status-msg">沒有符合篩選條件的資料</td></tr>`;
-    reportHeightToParent();
-    return;
-  }
-
-  body.innerHTML = rows.map(d => {
+function buildRowsHtml(rows){
+  return rows.map(d => {
     const trendClass = d.trendPct === '' ? 'dim' : (d.trendPct > 0 ? 'trend-up' : (d.trendPct < 0 ? 'trend-down' : 'dim'));
     const cvClass = Number(d.cv) >= 30 ? 'cv-warn' : 'dim';
     return `
@@ -320,8 +319,86 @@ function renderTable(){
       </tr>
     `;
   }).join('');
+}
 
-  document.querySelectorAll('#analysisBody .char-name').forEach(el => {
+function renderTable(){
+  const data = allDataBySource[activeSource] || [];
+  const unitSel = document.getElementById('unitFilter').value;
+  const charSel = document.getElementById('charFilter').value;
+  const sortBy = document.getElementById('sortBy').value;
+
+  const filtered = data.filter(d => {
+    if(unitSel && d.unit !== unitSel) return false;
+    if(charSel && d.character !== charSel) return false;
+    return true;
+  });
+
+  const wrap = document.getElementById('rankGroupsWrap');
+
+  if(!filtered.length){
+    wrap.innerHTML = `<div class="table-panel"><div class="status-msg">沒有符合篩選條件的資料</div></div>`;
+    reportHeightToParent();
+    return;
+  }
+
+  // 依名次分組建立區塊
+  const groupsHtml = RANK_GROUPS.map(group => {
+    const groupRows = sortRows(filtered.filter(d => group.ranks.includes(Number(d.rank))), sortBy);
+    if(!groupRows.length) return ''; // 這個分組在目前篩選條件下沒有任何資料，不顯示
+
+    const isExpanded = expandedGroups.has(group.key);
+    return `
+      <div class="rank-group ${isExpanded ? 'expanded' : ''}" data-group="${group.key}">
+        <div class="rank-group-header">
+          <span class="rank-group-title"><span class="rank-group-arrow">▶</span>${group.label}</span>
+          <span class="rank-group-count">${groupRows.length} 筆</span>
+        </div>
+        <div class="rank-group-body">
+          <div class="table-panel">
+            <table class="analysisTable">
+              <thead>
+                <tr>
+                  <th>角色</th>
+                  <th>名次</th>
+                  <th>樣本數</th>
+                  <th>中位數</th>
+                  <th>最小值</th>
+                  <th>最大值</th>
+                  <th>變異係數%</th>
+                  <th>最近3期中位數</th>
+                  <th>趨勢%</th>
+                </tr>
+              </thead>
+              <tbody>${buildRowsHtml(groupRows)}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.innerHTML = groupsHtml || `<div class="table-panel"><div class="status-msg">沒有符合篩選條件的資料</div></div>`;
+
+  // 分組標題點擊展開/收合
+  wrap.querySelectorAll('.rank-group-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const groupEl = header.closest('.rank-group');
+      const key = groupEl.dataset.group;
+      const isNowExpanded = groupEl.classList.toggle('expanded');
+      if(isNowExpanded){
+        expandedGroups.add(key);
+      }else{
+        expandedGroups.delete(key);
+      }
+      reportHeightToParent();
+    });
+  });
+
+  // 精簡顯示切換要套用到所有分組的表格
+  applyCompactToAllTables();
+
+  // 角色名稱點擊進入詳細模式
+  wrap.querySelectorAll('.char-name').forEach(el => {
     el.addEventListener('click', () => openDetail(el.dataset.character));
   });
 
@@ -329,8 +406,8 @@ function renderTable(){
 }
 
 async function loadData(){
-  const body = document.getElementById('analysisBody');
-  body.innerHTML = `<tr><td colspan="9" class="status-msg">載入資料中…</td></tr>`;
+  const wrap = document.getElementById('rankGroupsWrap');
+  wrap.innerHTML = `<div class="table-panel"><div class="status-msg">載入資料中…</div></div>`;
   document.getElementById('dataNote').textContent = '';
 
   try{
@@ -339,7 +416,7 @@ async function loadData(){
     const result = await res.json();
 
     if(result.error){
-      body.innerHTML = `<tr><td colspan="9" class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</td></tr>`;
+      wrap.innerHTML = `<div class="table-panel"><div class="status-msg">${result.message || '尚無分析資料，請等待管理員執行角色分析後再查看。'}</div></div>`;
       reportHeightToParent();
       return;
     }
@@ -351,7 +428,7 @@ async function loadData(){
       `一般活動 ${allDataBySource.marathon.length} 筆・World Link 章節 ${allDataBySource.worldLink.length} 筆`;
   }catch(err){
     console.error('載入分析資料失敗', err);
-    body.innerHTML = `<tr><td colspan="9" class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</td></tr>`;
+    wrap.innerHTML = `<div class="table-panel"><div class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</div></div>`;
     reportHeightToParent();
   }
 }
@@ -388,7 +465,6 @@ async function loadDetail(character, subCharacter){
       return;
     }
 
-    // 次要角色下拉選單只需要建立一次（第一次載入、subCharacter為空時）
     const subSel = document.getElementById('subCharFilter');
     if(!subCharacter){
       subSel.innerHTML = '<option value="">全部次要角色（不篩選）</option>';
@@ -441,19 +517,21 @@ document.getElementById('subCharFilter').addEventListener('change', (e) => {
   if(currentDetailCharacter) loadDetail(currentDetailCharacter, e.target.value);
 });
 
-// ---- 精簡顯示切換 ----
-function updateColToggleLabel(isCompact){
+// ---- 精簡顯示切換（套用到所有目前渲染出來的分組表格）----
+let isCompact = window.innerWidth < 900;
+function updateColToggleLabel(){
   document.getElementById('colToggleBtn').textContent = isCompact ? '☰ 精簡顯示' : '☰ 完整顯示';
 }
-function setCompactTable(isCompact){
-  document.getElementById('analysisTable').classList.toggle('compact', isCompact);
-  updateColToggleLabel(isCompact);
-  reportHeightToParent();
+function applyCompactToAllTables(){
+  document.querySelectorAll('#rankGroupsWrap table.analysisTable').forEach(t => {
+    t.classList.toggle('compact', isCompact);
+  });
+  updateColToggleLabel();
 }
-setCompactTable(window.innerWidth < 900);
 document.getElementById('colToggleBtn').addEventListener('click', () => {
-  const isCompact = document.getElementById('analysisTable').classList.contains('compact');
-  setCompactTable(!isCompact);
+  isCompact = !isCompact;
+  applyCompactToAllTables();
+  reportHeightToParent();
 });
 
 document.querySelectorAll('.source-tab').forEach(btn => {
@@ -469,11 +547,10 @@ document.querySelectorAll('.source-tab').forEach(btn => {
 
 document.getElementById('unitFilter').addEventListener('change', renderTable);
 document.getElementById('charFilter').addEventListener('change', renderTable);
-document.getElementById('rankFilter').addEventListener('change', renderTable);
 document.getElementById('sortBy').addEventListener('change', renderTable);
 document.getElementById('refreshBtn').addEventListener('click', loadData);
 
-// ---- 主動回報頁面高度給外層 index.html（篩選/切換後表格變短，讓外層iframe跟著縮小，避免留下空白）----
+// ---- 主動回報頁面高度給外層 index.html ----
 let lastReportedHeight = 0;
 function reportHeightToParent(){
   if(window.parent === window) return;
