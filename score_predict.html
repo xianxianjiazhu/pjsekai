@@ -1102,14 +1102,18 @@ function drawShareHeader(ctx, width){
   ctx.fillStyle = '#1f2430';
   ctx.font = 'bold 20px "Space Grotesk", sans-serif';
   ctx.textAlign = 'left';
-  const titleText = document.getElementById('eventName').textContent.trim();
+  let titleText = document.getElementById('eventName').textContent.trim();
+  // WL活動時，依目前所在分頁附註是總榜還是章節榜，避免圖片被誤會成搞混的排名
+  if(wlChapters.length > 0){
+    if(activeWlTab === 'overall'){
+      titleText += '（總榜）';
+    }else{
+      const chapter = wlChapters.find(c => String(c.id) === activeWlTab);
+      if(chapter) titleText += `（${chapter.name} 章節榜）`;
+    }
+  }
   ctx.fillText(titleText, 20, y + 22);
   y += 42;
-
-  ctx.fillStyle = '#6b7280';
-  ctx.font = '12px monospace';
-  ctx.fillText(`結算時間：${document.getElementById('checkpointStr').textContent}`, 20, y);
-  y += 18;
 
   let remainLabel = '—';
   if(CHECKPOINT_DATE){
