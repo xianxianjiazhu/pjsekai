@@ -136,6 +136,7 @@
     color:var(--text-dim);padding:7px 14px;border-radius:8px;cursor:pointer;
   }
   .back-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  #timelineChart{margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -147,7 +148,7 @@
       <li><strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。</li>
       <li><strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。</li>
       <li>點角色名稱可以進一步用「次要角色」篩選重新計算中位數，看搭配特定角色時分數有沒有明顯不同（樣本數少時參考價值較低，請留意樣本數）。</li>
-      <li>在詳細模式裡點名次列，可以展開該名次跨期數的分數趨勢折線圖。</li>
+      <li>進入角色詳細畫面後，點下方表格裡的<strong>名次</strong>（例如「T10 ›」），可以在上方展開該名次跨期數的分數趨勢折線圖。</li>
       <li>下方名次分組預設是收合的，點標題可以展開查看該區間的詳細資料。</li>
     </ol>
   </div>
@@ -195,6 +196,10 @@
       </select>
       <span class="dim mono" id="detailSampleNote" style="font-size:12px;"></span>
     </div>
+
+    <!-- ★改動：折線圖區塊移到表格上方 -->
+    <div id="timelineChart"></div>
+
     <div class="rank-group expanded">
       <div class="table-panel">
         <table id="detailTable">
@@ -216,7 +221,6 @@
         </table>
       </div>
     </div>
-    <div id="timelineChart"></div>
   </div>
 
   <div class="footer">
@@ -435,7 +439,8 @@ async function openDetail(character){
   document.getElementById('overviewView').style.display = 'none';
   document.getElementById('detailView').classList.add('active');
   document.getElementById('detailTitle').textContent = `${character}｜次要角色篩選`;
-  document.getElementById('timelineChart').innerHTML = '';
+  // ★改動：加入初始提示文字，而不是空白
+  document.getElementById('timelineChart').innerHTML = `<div class="table-panel"><div class="status-msg">點下方任一名次，查看跨期分數趨勢</div></div>`;
   await loadDetail(character, '');
 }
 
@@ -449,7 +454,7 @@ function closeDetail(){
 async function loadDetail(character, subCharacter){
   const body = document.getElementById('detailBody');
   body.innerHTML = `<tr><td colspan="8" class="status-msg">載入資料中…</td></tr>`;
-  document.getElementById('timelineChart').innerHTML = '';
+  document.getElementById('timelineChart').innerHTML = `<div class="table-panel"><div class="status-msg">點下方任一名次，查看跨期分數趨勢</div></div>`;
 
   try{
     const url = `${APPS_SCRIPT_URL}?mode=character_detail&character=${encodeURIComponent(character)}&subCharacter=${encodeURIComponent(subCharacter)}`;
@@ -517,23 +522,25 @@ async function loadDetail(character, subCharacter){
 // ---- 跨期分數趨勢折線圖 ----
 async function loadTimeline(character, rank, subCharacter){
   const chartWrap = document.getElementById('timelineChart');
-  chartWrap.style.cssText = 'background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px;';
-  chartWrap.innerHTML = `<div class="status-msg">載入趨勢圖中…</div>`;
+  chartWrap.innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;"><div class="status-msg">載入趨勢圖中…</div></div>`;
 
   try{
     const url = `${APPS_SCRIPT_URL}?mode=character_timeline&character=${encodeURIComponent(character)}&rank=${rank}&subCharacter=${encodeURIComponent(subCharacter)}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
     if(data.error || !data.points || !data.points.length){
-      chartWrap.innerHTML = `<div class="status-msg">沒有足夠資料畫圖</div>`;
+      chartWrap.innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;"><div class="status-msg">沒有足夠資料畫圖</div></div>`;
       reportHeightToParent();
       return;
     }
-    chartWrap.innerHTML = `<div style="font-weight:700;color:var(--cyan);margin-bottom:10px;">${character}｜T${rank} 分數趨勢</div>` + buildLineChartSvg(data.points);
+    chartWrap.innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;">
+      <div style="font-weight:700;color:var(--cyan);margin-bottom:10px;">${character}｜T${rank} 分數趨勢</div>
+      ${buildLineChartSvg(data.points)}
+    </div>`;
     reportHeightToParent();
   }catch(err){
     console.error('載入趨勢圖失敗', err);
-    chartWrap.innerHTML = `<div class="status-msg">載入失敗</div>`;
+    chartWrap.innerHTML = `<div style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;"><div class="status-msg">載入失敗</div></div>`;
     reportHeightToParent();
   }
 }
@@ -601,7 +608,7 @@ document.getElementById('charFilter').addEventListener('change', renderTable);
 document.getElementById('sortBy').addEventListener('change', renderTable);
 document.getElementById('refreshBtn').addEventListener('click', loadData);
 
-// ---- 主動回報頁面高度給外層 index.html（強化版：雙層 requestAnimationFrame 確保排版完成後才量測）----
+// ---- 主動回報頁面高度給外層 index.html ----
 let lastReportedHeight = 0;
 function reportHeightToParent(){
   if(window.parent === window) return;
