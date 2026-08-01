@@ -46,7 +46,6 @@
   }
   .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
 
-  /* ---- 名次分組摺疊 ---- */
   .rank-group{
     background:var(--bg-panel);
     border:1px solid var(--line);
@@ -148,6 +147,7 @@
       <li><strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。</li>
       <li><strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。</li>
       <li>點角色名稱可以進一步用「次要角色」篩選重新計算中位數，看搭配特定角色時分數有沒有明顯不同（樣本數少時參考價值較低，請留意樣本數）。</li>
+      <li>在詳細模式裡點名次列，可以展開該名次跨期數的分數趨勢折線圖。</li>
       <li>下方名次分組預設是收合的，點標題可以展開查看該區間的詳細資料。</li>
     </ol>
   </div>
@@ -183,7 +183,7 @@
     <div id="rankGroupsWrap"></div>
   </div>
 
-  <!-- 單一角色詳細模式（次要角色互動篩選）-->
+  <!-- 單一角色詳細模式（次要角色互動篩選 + 折線圖）-->
   <div id="detailView" class="detail-panel">
     <div class="detail-header">
       <span class="detail-title" id="detailTitle"></span>
@@ -216,6 +216,7 @@
         </table>
       </div>
     </div>
+    <div id="timelineChart"></div>
   </div>
 
   <div class="footer">
@@ -234,7 +235,6 @@ const CHARACTER_ORDER = [
   '初音未來', '鏡音鈴', '鏡音連', '巡音流歌', 'MEIKO', 'KAITO',
 ];
 
-// 名次分組定義：跟 Apps Script 端 summarizePredictionAccuracyByRank 用的分組一致
 const RANK_GROUPS = [
   { key: 'top',    label: 'T10-T100（頂尖排位）',   ranks: [10,20,30,40,50,100] },
   { key: 'high',   label: 'T200-T500（高排位）',     ranks: [200,300,400,500] },
@@ -246,7 +246,7 @@ const RANK_GROUPS = [
 let allDataBySource = { marathon: [], worldLink: [] };
 let activeSource = 'marathon';
 let currentDetailCharacter = null;
-let expandedGroups = new Set(); // 記住哪些分組目前是展開的，切換篩選/分頁時維持
+let expandedGroups = new Set();
 
 function fmtNum(n){
   if(n === '' || n === null || n === undefined) return '—';
@@ -341,10 +341,9 @@ function renderTable(){
     return;
   }
 
-  // 依名次分組建立區塊
   const groupsHtml = RANK_GROUPS.map(group => {
     const groupRows = sortRows(filtered.filter(d => group.ranks.includes(Number(d.rank))), sortBy);
-    if(!groupRows.length) return ''; // 這個分組在目前篩選條件下沒有任何資料，不顯示
+    if(!groupRows.length) return '';
 
     const isExpanded = expandedGroups.has(group.key);
     return `
@@ -379,7 +378,6 @@ function renderTable(){
 
   wrap.innerHTML = groupsHtml || `<div class="table-panel"><div class="status-msg">沒有符合篩選條件的資料</div></div>`;
 
-  // 分組標題點擊展開/收合
   wrap.querySelectorAll('.rank-group-header').forEach(header => {
     header.addEventListener('click', () => {
       const groupEl = header.closest('.rank-group');
@@ -394,10 +392,8 @@ function renderTable(){
     });
   });
 
-  // 精簡顯示切換要套用到所有分組的表格
   applyCompactToAllTables();
 
-  // 角色名稱點擊進入詳細模式
   wrap.querySelectorAll('.char-name').forEach(el => {
     el.addEventListener('click', () => openDetail(el.dataset.character));
   });
@@ -439,6 +435,7 @@ async function openDetail(character){
   document.getElementById('overviewView').style.display = 'none';
   document.getElementById('detailView').classList.add('active');
   document.getElementById('detailTitle').textContent = `${character}｜次要角色篩選`;
+  document.getElementById('timelineChart').innerHTML = '';
   await loadDetail(character, '');
 }
 
@@ -452,6 +449,7 @@ function closeDetail(){
 async function loadDetail(character, subCharacter){
   const body = document.getElementById('detailBody');
   body.innerHTML = `<tr><td colspan="8" class="status-msg">載入資料中…</td></tr>`;
+  document.getElementById('timelineChart').innerHTML = '';
 
   try{
     const url = `${APPS_SCRIPT_URL}?mode=character_detail&character=${encodeURIComponent(character)}&subCharacter=${encodeURIComponent(subCharacter)}`;
@@ -492,7 +490,7 @@ async function loadDetail(character, subCharacter){
       const cvClass = Number(d.cv) >= 30 ? 'cv-warn' : 'dim';
       return `
         <tr>
-          <td class="mono char-name">T${d.rank}</td>
+          <td class="mono char-name" style="cursor:pointer;" data-rank="${d.rank}">T${d.rank} ›</td>
           <td class="mono dim">${d.sampleCount}</td>
           <td class="mono">${fmtNum(d.median)}</td>
           <td class="mono dim">${fmtNum(d.min)}</td>
@@ -504,6 +502,10 @@ async function loadDetail(character, subCharacter){
       `;
     }).join('');
 
+    document.querySelectorAll('#detailBody .char-name').forEach(el => {
+      el.addEventListener('click', () => loadTimeline(currentDetailCharacter, el.dataset.rank, document.getElementById('subCharFilter').value));
+    });
+
     reportHeightToParent();
   }catch(err){
     console.error('載入角色詳細資料失敗', err);
@@ -512,12 +514,61 @@ async function loadDetail(character, subCharacter){
   }
 }
 
+// ---- 跨期分數趨勢折線圖 ----
+async function loadTimeline(character, rank, subCharacter){
+  const chartWrap = document.getElementById('timelineChart');
+  chartWrap.style.cssText = 'background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px;';
+  chartWrap.innerHTML = `<div class="status-msg">載入趨勢圖中…</div>`;
+
+  try{
+    const url = `${APPS_SCRIPT_URL}?mode=character_timeline&character=${encodeURIComponent(character)}&rank=${rank}&subCharacter=${encodeURIComponent(subCharacter)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    if(data.error || !data.points || !data.points.length){
+      chartWrap.innerHTML = `<div class="status-msg">沒有足夠資料畫圖</div>`;
+      reportHeightToParent();
+      return;
+    }
+    chartWrap.innerHTML = `<div style="font-weight:700;color:var(--cyan);margin-bottom:10px;">${character}｜T${rank} 分數趨勢</div>` + buildLineChartSvg(data.points);
+    reportHeightToParent();
+  }catch(err){
+    console.error('載入趨勢圖失敗', err);
+    chartWrap.innerHTML = `<div class="status-msg">載入失敗</div>`;
+    reportHeightToParent();
+  }
+}
+
+function buildLineChartSvg(points){
+  const w = 600, h = 220, pad = 44;
+  const scores = points.map(p => p.score);
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const range = max - min || 1;
+  const stepX = points.length > 1 ? (w - pad*2) / (points.length - 1) : 0;
+
+  const coords = points.map((p, i) => {
+    const x = pad + i * stepX;
+    const y = h - pad - ((p.score - min) / range) * (h - pad*2);
+    return { x, y, p };
+  });
+
+  const linePath = coords.map((c,i) => `${i===0?'M':'L'}${c.x},${c.y}`).join(' ');
+  const dots = coords.map(c => `
+    <circle cx="${c.x}" cy="${c.y}" r="4" fill="#4f46e5"/>
+    <text x="${c.x}" y="${c.y - 10}" font-size="10" fill="#1f2430" text-anchor="middle" font-family="monospace">${fmtNum(c.p.score)}</text>
+    <text x="${c.x}" y="${h - pad + 18}" font-size="10" fill="#6b7280" text-anchor="middle" font-family="monospace">${c.p.eventId}期</text>
+  `).join('');
+
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;display:block;margin:0 auto;">
+    <path d="${linePath}" fill="none" stroke="#4f46e5" stroke-width="2"/>
+    ${dots}
+  </svg>`;
+}
+
 document.getElementById('backBtn').addEventListener('click', closeDetail);
 document.getElementById('subCharFilter').addEventListener('change', (e) => {
   if(currentDetailCharacter) loadDetail(currentDetailCharacter, e.target.value);
 });
 
-// ---- 精簡顯示切換（套用到所有目前渲染出來的分組表格）----
 let isCompact = window.innerWidth < 900;
 function updateColToggleLabel(){
   document.getElementById('colToggleBtn').textContent = isCompact ? '☰ 精簡顯示' : '☰ 完整顯示';
@@ -550,16 +601,18 @@ document.getElementById('charFilter').addEventListener('change', renderTable);
 document.getElementById('sortBy').addEventListener('change', renderTable);
 document.getElementById('refreshBtn').addEventListener('click', loadData);
 
-// ---- 主動回報頁面高度給外層 index.html ----
+// ---- 主動回報頁面高度給外層 index.html（強化版：雙層 requestAnimationFrame 確保排版完成後才量測）----
 let lastReportedHeight = 0;
 function reportHeightToParent(){
   if(window.parent === window) return;
-  setTimeout(() => {
-    const h = document.documentElement.scrollHeight;
-    if(Math.abs(h - lastReportedHeight) < 5) return;
-    lastReportedHeight = h;
-    window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
-  }, 0);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const h = document.documentElement.scrollHeight;
+      if(Math.abs(h - lastReportedHeight) < 2) return;
+      lastReportedHeight = h;
+      window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
+    });
+  });
 }
 window.addEventListener('load', reportHeightToParent);
 if(window.ResizeObserver){
