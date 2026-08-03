@@ -455,7 +455,6 @@ function fmtNum(n){
   return Math.round(n).toLocaleString('zh-TW');
 }
 
-// 依活動期數自動選擇對應banner，找不到就退回通用banner，兩個都沒有就隱藏
 function setEventBanner(eventId){
   const bannerImg = document.getElementById('eventBanner');
   const specificSrc = `assest/event_banner_${eventId}.jpg`;
@@ -464,7 +463,6 @@ function setEventBanner(eventId){
   bannerImg.onload = function(){ bannerImg.style.display = 'block'; };
   bannerImg.onerror = function(){
     if(bannerImg.src.includes(`event_banner_${eventId}.jpg`)){
-      // 該期專屬banner還沒上傳，退回通用banner
       bannerImg.onerror = function(){ bannerImg.style.display = 'none'; };
       bannerImg.src = fallbackSrc;
     }else{
@@ -746,7 +744,7 @@ async function tryFetchBorder(retries = 2){
       throw new Error('資料格式異常');
     }catch(err){
       console.warn(`border 資料取得失敗（第${i+1}次嘗試，${err.name === 'AbortError' ? '逾時5秒' : err.message}）`, err);
-      if(i < retries) await new Promise(r => setTimeout(r, 1000)); // 重試前稍微等一下，避免連續轟炸
+      if(i < retries) await new Promise(r => setTimeout(r, 1000));
     }
   }
   console.warn('border 資料重試多次仍失敗，這次沒有border資料');
@@ -822,6 +820,10 @@ function clearStaleCacheNote(){
 
 async function loadLive(){
   document.getElementById('dataNote').textContent = '正在嘗試連線 Hi Sekai API…';
+
+  // ★改動：一開始就同時發起 border 請求，不用等 top100 抓完才開始，兩邊平行跑，加快整體載入速度
+  const borderPromise = tryFetchBorder();
+
   let result = await tryFetchLive();
   let attempt = 1;
   let shownFallback = false;
@@ -864,9 +866,10 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
         confidenceHours: hoursSinceStart || undefined,
       }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
+    // ★改動：優先用top100那次順便帶到的border資料（例如sekai.best），沒有的話才用一開始就在跑的borderPromise（而不是現在才發送新請求）
     const borderRaw = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
       ? data.player_border_rankings
-      : await tryFetchBorder();
+      : await borderPromise;
 
     const foundBorderRanks = borderRaw
       .filter(p => WANTED_BORDER_RANKS.includes(p.rank))
@@ -1103,7 +1106,6 @@ function drawShareHeader(ctx, width){
   ctx.font = 'bold 20px "Space Grotesk", sans-serif';
   ctx.textAlign = 'left';
   let titleText = document.getElementById('eventName').textContent.trim();
-  // WL活動時，依目前所在分頁附註是總榜還是章節榜，避免圖片被誤會成搞混的排名
   if(wlChapters.length > 0){
     if(activeWlTab === 'overall'){
       titleText += '（總榜）';
@@ -1114,6 +1116,11 @@ function drawShareHeader(ctx, width){
   }
   ctx.fillText(titleText, 20, y + 22);
   y += 42;
+
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '12px monospace';
+  ctx.fillText(`結算時間：${document.getElementById('checkpointStr').textContent}`, 20, y);
+  y += 18;
 
   let remainLabel = '—';
   if(CHECKPOINT_DATE){
