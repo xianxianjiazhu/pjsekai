@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -6,288 +7,77 @@
 <title>台服・分數線預測</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
   :root{
-    --bg:#f6f7fb;
-    --bg-panel:#ffffff;
-    --bg-panel-2:#f1f2f8;
-    --line:#e5e7eb;
-    --text:#1f2430;
-    --text-dim:#6b7280;
-    --cyan:#4f46e5;
-    --pink:#db2777;
-    --purple:#7c3aed;
-    --amber:#d97706;
-    --green:#059669;
+    --bg:#f6f7fb; --bg-panel:#ffffff; --bg-panel-2:#f1f2f8; --line:#e5e7eb;
+    --text:#1f2430; --text-dim:#6b7280; --cyan:#4f46e5; --pink:#db2777;
+    --purple:#7c3aed; --amber:#d97706; --green:#059669;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Space Grotesk', system-ui, "Noto Sans TC", sans-serif;
-    padding:28px 16px 60px;
-  }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk', system-ui, "Noto Sans TC", sans-serif;padding:28px 16px 60px;}
   .wrap{max-width:920px;margin:0 auto;}
-
-  .eyebrow{
-    font-family:'JetBrains Mono', monospace;
-    font-size:12px;
-    letter-spacing:.15em;
-    color:var(--cyan);
-    text-transform:uppercase;
-    margin:0 0 6px;
-  }
-  h1{
-    font-size:26px;
-    margin:0 0 4px;
-    font-weight:700;
-    line-height:1.3;
-  }
+  h1{font-size:26px;margin:0 0 4px;font-weight:700;line-height:1.3;}
   .event-name{color:var(--text-dim);font-size:14px;margin:0 0 22px;}
-
-  .hero{
-    background:linear-gradient(155deg, var(--bg-panel-2), var(--bg-panel));
-    border:1px solid var(--line);
-    border-radius:18px;
-    padding:26px 24px;
-    margin-bottom:22px;
-    position:relative;
-    overflow:hidden;
-    box-shadow:0 1px 3px rgba(0,0,0,0.04);
-  }
-  .hero::before{
-    content:"";
-    position:absolute;top:-40%;right:-10%;
-    width:280px;height:280px;
-    background:radial-gradient(circle, rgba(219,39,119,0.08), transparent 70%);
-    pointer-events:none;
-  }
+  .hero{background:linear-gradient(155deg, var(--bg-panel-2), var(--bg-panel));border:1px solid var(--line);border-radius:18px;padding:26px 24px;margin-bottom:22px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
+  .hero::before{content:"";position:absolute;top:-40%;right:-10%;width:280px;height:280px;background:radial-gradient(circle, rgba(219,39,119,0.08), transparent 70%);pointer-events:none;}
   .hero-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--pink);letter-spacing:.1em;margin-bottom:10px;}
-  .countdown{
-    display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;
-  }
+  .countdown{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;}
   .cd-unit{display:flex;flex-direction:column;align-items:flex-start;}
-  .cd-num{
-    font-family:'JetBrains Mono',monospace;
-    font-size:44px;font-weight:700;
-    line-height:1;
-    background:linear-gradient(90deg, var(--cyan), var(--purple));
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-  }
+  .cd-num{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;background:linear-gradient(90deg, var(--cyan), var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent;}
   .cd-sub{font-size:11px;color:var(--text-dim);margin-top:4px;letter-spacing:.08em;}
   .checkpoint-time{margin-top:16px;font-size:13px;color:var(--text-dim);}
   .checkpoint-time b{color:var(--text);font-weight:600;}
-  .status-pill{
-    display:inline-block;margin-top:12px;
-    font-family:'JetBrains Mono',monospace;font-size:11px;
-    padding:4px 10px;border-radius:999px;
-    border:1px solid var(--line);color:var(--text-dim);
-  }
+  .status-pill{display:inline-block;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--text-dim);}
   .status-pill.live{color:var(--green);border-color:rgba(5,150,105,0.35);}
   .status-pill.snap{color:var(--amber);border-color:rgba(217,119,6,0.35);}
-
-  .section-title{
-    display:flex;align-items:center;gap:10px;
-    margin:30px 0 12px;
-  }
-  .section-title .num{
-    font-family:'JetBrains Mono',monospace;
-    color:var(--purple);font-size:13px;
-  }
+  .section-title{display:flex;align-items:center;gap:10px;margin:30px 0 12px;}
+  .section-title .num{font-family:'JetBrains Mono',monospace;color:var(--purple);font-size:13px;}
   .section-title h2{font-size:16px;margin:0;font-weight:600;}
-
-  .freshness{
-    display:flex;gap:16px;flex-wrap:wrap;
-    font-family:'JetBrains Mono',monospace;
-    font-size:11.5px;color:var(--text-dim);
-    margin-bottom:10px;
-  }
+  .freshness{display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-dim);margin-bottom:10px;}
   .freshness b{color:var(--text);font-weight:600;}
-
-  .wl-tabs{
-    display:none;
-    gap:6px;
-    flex-wrap:wrap;
-    background:var(--bg-panel-2);
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:6px;
-    margin-bottom:14px;
-  }
+  .wl-tabs{display:none;gap:6px;flex-wrap:wrap;background:var(--bg-panel-2);border:1px solid var(--line);border-radius:12px;padding:6px;margin-bottom:14px;}
   .wl-tabs.active{ display:flex; }
-  .wl-tab{
-    flex:1 1 auto;
-    min-width:76px;
-    text-align:center;
-    font-family:'JetBrains Mono',monospace;
-    font-size:12.5px;
-    font-weight:600;
-    padding:9px 12px;
-    border-radius:8px;
-    border:none;
-    background:transparent;
-    color:var(--text-dim);
-    cursor:pointer;
-    transition:.15s;
-    white-space:nowrap;
-  }
+  .wl-tab{flex:1 1 auto;min-width:76px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;transition:.15s;white-space:nowrap;}
   .wl-tab:hover{color:var(--text);background:rgba(0,0,0,0.04);}
-  .wl-tab.active{
-    background:var(--purple);
-    color:#ffffff;
-  }
+  .wl-tab.active{background:var(--purple);color:#ffffff;}
   .wl-tab.overall-tab{color:var(--cyan);}
-  .wl-tab.overall-tab.active{
-    background:var(--cyan);
-    color:#ffffff;
-  }
-  .wl-banner{
-    display:none;
-    font-family:'JetBrains Mono',monospace;
-    font-size:11.5px;
-    color:var(--purple);
-    background:rgba(124,58,237,0.08);
-    border:1px solid rgba(124,58,237,0.3);
-    border-radius:10px;
-    padding:8px 14px;
-    margin-bottom:10px;
-  }
+  .wl-tab.overall-tab.active{background:var(--cyan);color:#ffffff;}
+  .wl-banner{display:none;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--purple);background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:10px;padding:8px 14px;margin-bottom:10px;}
   .wl-banner.active{ display:block; }
-
-  .table-panel table.compact th:nth-child(3),
-  .table-panel table.compact td:nth-child(3),
-  .table-panel table.compact th:nth-child(4),
-  .table-panel table.compact td:nth-child(4),
-  .table-panel table.compact th:nth-child(6),
-  .table-panel table.compact td:nth-child(6){
-    display:none;
-  }
-  .table-panel table.compact{
-    min-width:0;
-  }
-  .table-panel table.compact th:nth-child(2),
-  .table-panel table.compact td:nth-child(2){
-    width:45%;
-  }
-  .table-panel table.compact th:nth-child(5),
-  .table-panel table.compact td:nth-child(5){
-    width:45%;
-  }
-  .col-toggle-btn{
-    font-family:'JetBrains Mono',monospace;
-    font-size:11px;
-    background:var(--bg-panel-2);
-    border:1px solid var(--line);
-    color:var(--text-dim);
-    padding:6px 12px;
-    border-radius:999px;
-    cursor:pointer;
-    margin-bottom:10px;
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-  }
+  .table-panel table.compact th:nth-child(3), .table-panel table.compact td:nth-child(3), .table-panel table.compact th:nth-child(4), .table-panel table.compact td:nth-child(4), .table-panel table.compact th:nth-child(6), .table-panel table.compact td:nth-child(6){display:none;}
+  .table-panel table.compact{min-width:0;}
+  .table-panel table.compact th:nth-child(2), .table-panel table.compact td:nth-child(2){width:45%;}
+  .table-panel table.compact th:nth-child(5), .table-panel table.compact td:nth-child(5){width:45%;}
+  .col-toggle-btn{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text-dim);padding:6px 12px;border-radius:999px;cursor:pointer;margin-bottom:10px;display:inline-flex;align-items:center;gap:6px;}
   .col-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-
-  .table-panel{
-    background:var(--bg-panel);
-    border:1px solid var(--line);
-    border-radius:14px;
-    overflow-x:auto;
-    box-shadow:0 1px 3px rgba(0,0,0,0.04);
-  }
+  .table-panel{background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
   .table-panel thead th{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
   table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px;}
   th,td{padding:11px 14px;text-align:right;white-space:nowrap;}
   th:first-child,td:first-child{text-align:left;}
-  th{
-    font-family:'JetBrains Mono',monospace;
-    font-size:11px;color:var(--text-dim);
-    letter-spacing:.05em;font-weight:500;
-    border-bottom:1px solid var(--line);
-  }
+  th{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:.05em;font-weight:500;border-bottom:1px solid var(--line);}
   tbody tr{border-bottom:1px solid var(--line);}
   tbody tr:last-child{border-bottom:none;}
   tbody tr:hover{background:rgba(79,70,229,0.05);}
-  .rank-tag{
-    font-family:'JetBrains Mono',monospace;
-    font-weight:700;color:var(--cyan);
-  }
-  .predicted{
-    font-family:'JetBrains Mono',monospace;
-    font-weight:700;color:var(--pink);
-  }
+  .rank-tag{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--cyan);}
+  .predicted{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--pink);}
   .mono{font-family:'JetBrains Mono',monospace;}
   .dim{color:var(--text-dim);}
-
-  .calc-panel{
-    background:var(--bg-panel);
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:22px;
-    box-shadow:0 1px 3px rgba(0,0,0,0.04);
-  }
-  .calc-grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:14px;
-    margin-bottom:16px;
-  }
+  .calc-panel{background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
+  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
   @media (max-width:560px){.calc-grid{grid-template-columns:1fr;}}
   label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
-  input[type=number], input[type=text], select{
-    width:100%;
-    background:var(--bg-panel-2);
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:10px 12px;
-    color:var(--text);
-    font-family:'JetBrains Mono',monospace;
-    font-size:14px;
-  }
+  input[type=number], input[type=text], select{width:100%;background:var(--bg-panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;}
   input[type=number]:focus, input[type=text]:focus, select:focus{outline:none;border-color:var(--cyan);}
   .quickfill{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
-  .qf-btn{
-    font-family:'JetBrains Mono',monospace;
-    font-size:11px;
-    background:var(--bg-panel-2);
-    border:1px solid var(--line);
-    color:var(--text-dim);
-    padding:6px 10px;border-radius:8px;
-    cursor:pointer;transition:.15s;
-  }
+  .qf-btn{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text-dim);padding:6px 10px;border-radius:8px;cursor:pointer;transition:.15s;}
   .qf-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-  .result{
-    background:linear-gradient(120deg, rgba(79,70,229,0.06), rgba(219,39,119,0.06));
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:18px 20px;
-    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
-  }
+  .result{background:linear-gradient(120deg, rgba(79,70,229,0.06), rgba(219,39,119,0.06));border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
   .result-label{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
-  .result-value{
-    font-family:'JetBrains Mono',monospace;
-    font-size:28px;font-weight:700;
-    color:var(--text);
-  }
+  .result-value{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:var(--text);}
   .result-note{font-size:12px;color:var(--text-dim);margin-top:10px;line-height:1.6;}
-
-  footer{
-    margin-top:34px;
-    font-size:12px;
-    color:var(--text-dim);
-    line-height:1.7;
-    border-top:1px solid var(--line);
-    padding-top:16px;
-  }
+  footer{margin-top:34px;font-size:12px;color:var(--text-dim);line-height:1.7;border-top:1px solid var(--line);padding-top:16px;}
   footer a{color:var(--cyan);text-decoration:none;}
-  .refresh-btn{
-    font-family:'JetBrains Mono',monospace;font-size:12px;
-    background:var(--bg-panel-2);border:1px solid var(--line);
-    color:var(--cyan);padding:7px 14px;border-radius:8px;cursor:pointer;
-    margin-left:auto;
-  }
+  .refresh-btn{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-panel-2);border:1px solid var(--line);color:var(--cyan);padding:7px 14px;border-radius:8px;cursor:pointer;margin-left:auto;}
   .refresh-btn:hover{border-color:var(--cyan);}
   .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
 </style>
@@ -296,8 +86,7 @@
 <div class="wrap">
 
   <h1>分數線預測</h1>
-  <img id="eventBanner" src="" alt="活動橫幅"
-       style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);">
+  <img id="eventBanner" src="" alt="活動橫幅" style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);">
   <p class="event-name" id="eventName">載入活動資訊中…</p>
 
   <div class="hero">
@@ -316,9 +105,7 @@
   </div>
 
   <div class="section-title"><span class="num">01</span><h2>各名次即時分數與預測分數線</h2></div>
-  <p id="wlBanner" class="wl-banner">
-    🔗 這是 World Link 活動，下面可以切換「總榜」或各章節角色的排名／預測分數線
-  </p>
+  <p id="wlBanner" class="wl-banner">🔗 這是 World Link 活動，下面可以切換「總榜」或各章節角色的排名／預測分數線</p>
   <div id="wlTabs" class="wl-tabs"></div>
   <div class="freshness">
     <span>資料獲取時間：<b id="fetchedAgo">—</b></span>
@@ -336,17 +123,10 @@
     <table id="rankTable">
       <thead>
         <tr>
-          <th>名次</th>
-          <th>目前分數</th>
-          <th>近24h時速</th>
-          <th>結算前預估增加</th>
-          <th>預測分數線</th>
-          <th id="histColHeader">同角色歷史中位數</th>
+          <th>名次</th><th>目前分數</th><th>近24h時速</th><th>結算前預估增加</th><th>預測分數線</th><th id="histColHeader">同角色歷史中位數</th>
         </tr>
       </thead>
-      <tbody id="rankTableBody">
-        <tr><td colspan="6" class="dim">載入排名資料中…</td></tr>
-      </tbody>
+      <tbody id="rankTableBody"><tr><td colspan="6" class="dim">載入排名資料中…</td></tr></tbody>
     </table>
   </div>
   <div class="result-note">
@@ -356,56 +136,37 @@
       <li>標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</li>
       <li>World Link 活動不顯示「同角色歷史中位數」——WL的分數結構與玩家池和一般活動不同，用一般活動的歷史資料比對不具參考意義。</li>
       <li>World Link 各章節有各自獨立的結算時間，切換分頁時上方倒數計時與預測分數線會自動改用該章節的結算時間，不會沿用總榜的結算時間。</li>
+      <li>World Link 章節的時速跟一般活動一樣改用「排名門檻」近期實測時速，不使用官方的個人時速數據。</li>
     </ol>
   </div>
 
   <div class="section-title"><span class="num">02</span><h2>自訂分數線計算機</h2></div>
   <div class="calc-panel">
     <div class="calc-grid">
-      <div>
-        <label>目前分數（PT）</label>
-        <input type="number" id="curScore" placeholder="例：8500000">
-      </div>
-      <div>
-        <label>近期時速（每小時 PT）</label>
-        <input type="number" id="curSpeed" placeholder="例：250000">
-      </div>
+      <div><label>目前分數（PT）</label><input type="number" id="curScore" placeholder="例：8500000"></div>
+      <div><label>近期時速（每小時 PT）</label><input type="number" id="curSpeed" placeholder="例：250000"></div>
     </div>
-    <div class="quickfill" id="quickfill">
-    </div>
+    <div class="quickfill" id="quickfill"></div>
     <div class="result">
-      <div>
-        <div class="result-label">預測精彩片段結算分數</div>
-        <div class="result-value" id="resultValue">—</div>
-      </div>
+      <div><div class="result-label">預測精彩片段結算分數</div><div class="result-value" id="resultValue">—</div></div>
       <div class="result-label" id="resultRemain">尚未計算</div>
     </div>
-    <p class="result-note">
-      公式：預測分數 = 目前分數 ＋ 時速（PT/小時）× 距結算剩餘小時數。時速建議抓「近24小時均速」較穩定；若你這幾天正在加速衝刺，可改填近1～3小時時速較貼近實際節奏。此為線性推估，實際會受連假、活動加成、玩家後期衝刺等因素影響，僅供參考。
-    </p>
+    <p class="result-note">公式：預測分數 = 目前分數 ＋ 時速（PT/小時）× 距結算剩餘小時數。時速建議抓「近24小時均速」較穩定；若你這幾天正在加速衝刺，可改填近1～3小時時速較貼近實際節奏。此為線性推估，實際會受連假、活動加成、玩家後期衝刺等因素影響，僅供參考。</p>
   </div>
 
   <div class="section-title"><span class="num">03</span><h2>輸入名次查詢</h2></div>
   <div class="calc-panel">
     <p class="result-note" id="lookupScopeHint" style="margin-top:0;margin-bottom:14px;color:var(--purple);"></p>
     <div class="calc-grid">
-      <div>
-        <label>想查詢的名次</label>
-        <input type="number" id="lookupRankInput" placeholder="例：750" min="1" max="100000">
-      </div>
-      <div style="display:flex;align-items:flex-end;">
-        <button class="refresh-btn" id="lookupBtn" style="margin-left:0;width:100%;">查詢</button>
-      </div>
+      <div><label>想查詢的名次</label><input type="number" id="lookupRankInput" placeholder="例：750" min="1" max="100000"></div>
+      <div style="display:flex;align-items:flex-end;"><button class="refresh-btn" id="lookupBtn" style="margin-left:0;width:100%;">查詢</button></div>
     </div>
     <div id="lookupResult"></div>
     <button id="lookupShareBtn" class="col-toggle-btn" type="button" style="display:none;margin-top:10px;">📷 生成分享圖片</button>
 
     <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);">
       <div class="calc-grid">
-        <div>
-          <label>想查詢的玩家 ID</label>
-          <input type="text" id="lookupIdInput">
-        </div>
+        <div><label>想查詢的玩家 ID</label><input type="text" id="lookupIdInput"></div>
         <div style="display:flex;align-items:flex-end;gap:8px;">
           <button class="refresh-btn" id="lookupIdBtn" style="margin-left:0;flex:1;">查詢</button>
           <button class="qf-btn" id="lookupIdLastBtn" type="button" style="display:none;white-space:nowrap;">用上次的 ID</button>
@@ -429,7 +190,6 @@
 
 <script>
 let CHECKPOINT_DATE = null;
-
 let liveData = null;
 let currentRanks = [];
 let fullTop100Raw = [];
@@ -454,15 +214,12 @@ function updateFreshnessDisplay(){
   document.getElementById('calcAgo').textContent = relTime(lastCalcAt);
 }
 
-function fmtNum(n){
-  return Math.round(n).toLocaleString('zh-TW');
-}
+function fmtNum(n){ return Math.round(n).toLocaleString('zh-TW'); }
 
 function setEventBanner(eventId){
   const bannerImg = document.getElementById('eventBanner');
   const specificSrc = `assest/event_banner_${eventId}.jpg`;
   const fallbackSrc = 'assest/event_banner.jpg';
-
   bannerImg.onload = function(){ bannerImg.style.display = 'block'; };
   bannerImg.onerror = function(){
     if(bannerImg.src.includes(`event_banner_${eventId}.jpg`)){
@@ -513,8 +270,7 @@ function renderCheckpointStr(){
     return;
   }
   const opts = { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
-  document.getElementById('checkpointStr').textContent =
-    new Intl.DateTimeFormat('zh-TW', opts).format(CHECKPOINT_DATE);
+  document.getElementById('checkpointStr').textContent = new Intl.DateTimeFormat('zh-TW', opts).format(CHECKPOINT_DATE);
 }
 
 let charStats = null;
@@ -522,41 +278,25 @@ let charStats = null;
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
   const isWorldLinkEvent = wlChapters.length > 0;
-
   document.getElementById('histColHeader').style.display = isWorldLinkEvent ? 'none' : '';
-
   body.innerHTML = '';
   ranks.forEach(r=>{
     const tr = document.createElement('tr');
     if(r.available === false || r.score === null){
-      tr.innerHTML = `
-        <td class="rank-tag">T${r.rank}</td>
-        <td class="mono dim" colspan="${isWorldLinkEvent ? 4 : 5}">— 無官方資料</td>
-      `;
+      tr.innerHTML = `<td class="rank-tag">T${r.rank}</td><td class="mono dim" colspan="${isWorldLinkEvent ? 4 : 5}">— 無官方資料</td>`;
       body.appendChild(tr);
       return;
     }
-    const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
-      ? charStats.avgByRank[r.rank]
-      : null;
+    const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined ? charStats.avgByRank[r.rank] : null;
     const { gain, predicted, confidence } = predictWithConfidence(r, remainHours, histAvgNum);
-    const confidenceTag = confidence < 0.999
-      ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>`
-      : '';
+    const confidenceTag = confidence < 0.999 ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>` : '';
     const speedLabel = r.isRecentLog
       ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
       : r.isAverage
         ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
         : `${fmtNum(r.speed)}/h`;
     const histAvg = histAvgNum !== null ? fmtNum(histAvgNum) : '<span class="dim">—</span>';
-    tr.innerHTML = `
-      <td class="rank-tag">T${r.rank}</td>
-      <td class="mono">${fmtNum(r.score)}</td>
-      <td class="mono dim">${speedLabel}</td>
-      <td class="mono dim">+${fmtNum(gain)}${confidenceTag}</td>
-      <td class="predicted">${fmtNum(predicted)}</td>
-      ${isWorldLinkEvent ? '' : `<td class="mono dim">${histAvg}</td>`}
-    `;
+    tr.innerHTML = `<td class="rank-tag">T${r.rank}</td><td class="mono">${fmtNum(r.score)}</td><td class="mono dim">${speedLabel}</td><td class="mono dim">+${fmtNum(gain)}${confidenceTag}</td><td class="predicted">${fmtNum(predicted)}</td>${isWorldLinkEvent ? '' : `<td class="mono dim">${histAvg}</td>`}`;
     body.appendChild(tr);
   });
 }
@@ -565,21 +305,14 @@ function buildQuickfill(ranks){
   const wrap = document.getElementById('quickfill');
   wrap.innerHTML = '';
   const curated = [1, 5, 10, 30, 50, 100, 200, 500, 1000, 2000, 5000];
-  ranks
-    .filter(r => curated.includes(r.rank) && r.available !== false && r.score !== null)
-    .forEach(r=>{
-      const btn = document.createElement('button');
-      btn.className = 'qf-btn';
-      btn.type = 'button';
-      btn.textContent = r.isAverage
-        ? `套用 T${r.rank} 均速 (${fmtNum(r.speed)}/h)`
-        : `套用 T${r.rank} 時速 (${fmtNum(r.speed)}/h)`;
-      btn.onclick = () => {
-        document.getElementById('curSpeed').value = Math.round(r.speed);
-        calcCustom();
-      };
-      wrap.appendChild(btn);
-    });
+  ranks.filter(r => curated.includes(r.rank) && r.available !== false && r.score !== null).forEach(r=>{
+    const btn = document.createElement('button');
+    btn.className = 'qf-btn';
+    btn.type = 'button';
+    btn.textContent = r.isAverage ? `套用 T${r.rank} 均速 (${fmtNum(r.speed)}/h)` : `套用 T${r.rank} 時速 (${fmtNum(r.speed)}/h)`;
+    btn.onclick = () => { document.getElementById('curSpeed').value = Math.round(r.speed); calcCustom(); };
+    wrap.appendChild(btn);
+  });
 }
 
 function calcCustom(){
@@ -601,13 +334,8 @@ function calcCustom(){
 function updateLookupScopeHint(){
   const hintEl = document.getElementById('lookupScopeHint');
   if(!hintEl) return;
-  if(wlChapters.length === 0){
-    hintEl.textContent = '';
-    return;
-  }
-  const scopeLabel = activeWlTab === 'overall'
-    ? '總榜'
-    : ((wlChapters.find(c => String(c.id) === activeWlTab) || {}).name || '章節') + ' 章節榜';
+  if(wlChapters.length === 0){ hintEl.textContent = ''; return; }
+  const scopeLabel = activeWlTab === 'overall' ? '總榜' : ((wlChapters.find(c => String(c.id) === activeWlTab) || {}).name || '章節') + ' 章節榜';
   hintEl.textContent = `📌 目前查詢範圍：${scopeLabel}（跟著上方選擇的分頁切換）`;
 }
 
@@ -633,23 +361,13 @@ function renderAll(ranks, isLive){
 
 function pickReferenceRanks(top100arr, hoursSinceStart){
   const wanted = MILESTONE_RANKS.filter(r => r <= 100);
-  return top100arr
-    .filter(p => wanted.includes(p.rank))
-    .map(p => {
-      const useAverage = !!hoursSinceStart;
-      return {
-        rank: p.rank,
-        score: p.score,
-        speed: useAverage ? p.score / hoursSinceStart : 0,
-        isAverage: useAverage || undefined,
-        confidenceHours: useAverage ? hoursSinceStart : undefined,
-      };
-    })
-    .sort((a,b)=>a.rank-b.rank);
+  return top100arr.filter(p => wanted.includes(p.rank)).map(p => {
+    const useAverage = !!hoursSinceStart;
+    return { rank: p.rank, score: p.score, speed: useAverage ? p.score / hoursSinceStart : 0, isAverage: useAverage || undefined, confidenceHours: useAverage ? hoursSinceStart : undefined };
+  }).sort((a,b)=>a.rank-b.rank);
 }
 
 const API_URL = 'https://api.hisekai.org/tw/event/live/top100';
-
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
 
 const FETCH_STRATEGIES = [
@@ -662,11 +380,8 @@ const FETCH_STRATEGIES = [
 async function fetchWithTimeout(url, options = {}, timeoutMs = 5000){
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try{
-    return await fetch(url, { ...options, signal: controller.signal });
-  }finally{
-    clearTimeout(timer);
-  }
+  try{ return await fetch(url, { ...options, signal: controller.signal }); }
+  finally{ clearTimeout(timer); }
 }
 
 async function tryFetchLive(){
@@ -682,11 +397,9 @@ async function tryFetchLive(){
       console.warn(`[${strat.label}] 連線失敗（${err.name === 'AbortError' ? '逾時5秒' : err.message}）`);
     }
   }
-
   document.getElementById('dataNote').textContent = '正在嘗試連線（sekai.best，獨立備援）…';
   const sekaiBestData = await trySekaiBestFetch();
   if(sekaiBestData) return { data: sekaiBestData, via: 'sekai.best（獨立資料源）' };
-
   return null;
 }
 
@@ -699,20 +412,14 @@ async function trySekaiBestFetch(){
     const rankData = combined.rank || {};
     const rankings = (rankData.data && rankData.data.eventRankings) || [];
     if(!rankings.length) throw new Error('沒有排名資料');
-
     const ev = info.eventJson || {};
     return {
-      id: ev.id,
-      name: ev.name,
+      id: ev.id, name: ev.name,
       start_at: ev.startAt ? new Date(ev.startAt).toISOString() : null,
       closed_at: ev.closedAt ? new Date(ev.closedAt).toISOString() : null,
       aggregate_at: ev.aggregateAt ? new Date(ev.aggregateAt).toISOString() : null,
-      player_top_100_rankings: rankings
-        .filter(r => Number(r.rank) <= 100)
-        .map(r => ({ rank: Number(r.rank), score: Number(r.score), name: r.userName, userId: r.userId })),
-      player_border_rankings: rankings
-        .filter(r => Number(r.rank) > 100)
-        .map(r => ({ rank: Number(r.rank), score: Number(r.score) })),
+      player_top_100_rankings: rankings.filter(r => Number(r.rank) <= 100).map(r => ({ rank: Number(r.rank), score: Number(r.score), name: r.userName, userId: r.userId })),
+      player_border_rankings: rankings.filter(r => Number(r.rank) > 100).map(r => ({ rank: Number(r.rank), score: Number(r.score) })),
     };
   }catch(err){
     console.warn('[sekai.best] 連線失敗', err);
@@ -755,6 +462,32 @@ async function applyRecentSpeeds(ranks, eventId){
   return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
 
+let cachedRecentSpeedsWl = null;
+
+async function fetchRecentSpeedsWl(eventId){
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=recent_speed_wl`, { cache: 'no-store' }, 5000);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const result = await res.json();
+    if(result.error || Number(result.eventId) !== Number(eventId) || !result.speeds) return null;
+    return result.speeds;
+  }catch(err){
+    console.warn('WL章節近期實測時速取得失敗，維持均速估算', err);
+    return null;
+  }
+}
+
+function overrideChapterWithRecentSpeeds(chapter, speeds){
+  if(!speeds) return chapter;
+  const applyToList = (list) => list.map(r => {
+    const key = `${chapter.chapter}_${chapter.character}_${r.rank}`;
+    const measured = speeds[key];
+    if(measured === undefined || measured === null) return r;
+    return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
+  });
+  return { ...chapter, rankings: applyToList(chapter.rankings || []), borderRankings: applyToList(chapter.borderRankings || []) };
+}
+
 async function tryFetchBorder(retries = 2){
   for(let i = 0; i <= retries; i++){
     try{
@@ -771,16 +504,6 @@ async function tryFetchBorder(retries = 2){
   console.warn('border 資料重試多次仍失敗，這次沒有border資料');
   return null;
 }
-
-const CACHE_KEY = 'pjsk_last_snapshot';
-
-function safeGetCache(){
-  try{ const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
-}
-function safeSetCache(snapshot){
-  try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snapshot)); }catch(e){ /* 略過 */ }
-}
-
 function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   const sourceLabel = source === 'borderlog' ? 'border_log' : '本機瀏覽器快取';
   document.getElementById('eventName').textContent = `第 ${eventId} 期・${eventName}（非即時資料・來源：${sourceLabel}）`;
@@ -796,7 +519,6 @@ function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   const existing = document.getElementById('staleCacheNote');
   if(existing) existing.remove();
   document.getElementById('warmupWarning').insertAdjacentElement('afterend', note);
-
   loadCharacterStats(eventId);
 }
 
@@ -806,9 +528,7 @@ async function tryBorderLogFallback(){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if(data.error || !Array.isArray(data.rankings) || !data.rankings.length) return false;
-    const ranks = data.rankings
-      .map(r => ({ rank: r.rank, score: r.score, speed: r.speed || 0 }))
-      .sort((a,b) => a.rank - b.rank);
+    const ranks = data.rankings.map(r => ({ rank: r.rank, score: r.score, speed: r.speed || 0 })).sort((a,b) => a.rank - b.rank);
     renderFallback('borderlog', data.id, data.name, ranks, new Date(data.fetchedAt));
     return true;
   }catch(err){
@@ -841,17 +561,14 @@ function clearStaleCacheNote(){
 
 async function loadLive(){
   document.getElementById('dataNote').textContent = '正在嘗試連線 Hi Sekai API…';
-
   const borderPromise = tryFetchBorder();
-
   let result = await tryFetchLive();
   let attempt = 1;
   let shownFallback = false;
   while(!result){
     attempt++;
     const delaySec = Math.min(3 + (attempt - 2) * 5, 30);
-    document.getElementById('dataNote').textContent =
-      `連線未成功，可能是 Apps Script 剛冷啟動或 API 暫時無法使用，${delaySec} 秒後自動重試（第 ${attempt} 次）…`;
+    document.getElementById('dataNote').textContent = `連線未成功，可能是 Apps Script 剛冷啟動或 API 暫時無法使用，${delaySec} 秒後自動重試（第 ${attempt} 次）…`;
     if(!shownFallback && attempt >= 3){
       shownFallback = await showFallbackIfAvailable();
     }
@@ -862,53 +579,35 @@ async function loadLive(){
   {
     const data = result.data;
     liveData = data;
-    document.getElementById('eventName').textContent =
-      `第 ${data.id} 期・${data.name}`;
+    document.getElementById('eventName').textContent = `第 ${data.id} 期・${data.name}`;
     setEventBanner(data.id);
 
-const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
-
-    const hoursSinceStart = data.start_at
-      ? Math.max(0.01, (new Date() - new Date(data.start_at)) / 3600000)
-      : null;
+    const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
+    const hoursSinceStart = data.start_at ? Math.max(0.01, (new Date() - new Date(data.start_at)) / 3600000) : null;
 
     const top100Ranks = pickReferenceRanks(data.player_top_100_rankings || [], hoursSinceStart);
-    fullTop100Raw = (data.player_top_100_rankings || [])
-      .map(p => ({
-        rank: p.rank,
-        score: p.score,
-        speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
-        isAverage: !!hoursSinceStart,
-        confidenceHours: hoursSinceStart || undefined,
-      }));
+    fullTop100Raw = (data.player_top_100_rankings || []).map(p => ({
+      rank: p.rank, score: p.score,
+      speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+      isAverage: !!hoursSinceStart,
+      confidenceHours: hoursSinceStart || undefined,
+    }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
 
-    const borderFullData = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
-      ? null
-      : await borderPromise;
-
+    const borderFullData = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length) ? null : await borderPromise;
     const borderRaw = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
       ? data.player_border_rankings
       : (borderFullData && Array.isArray(borderFullData.player_border_rankings) ? borderFullData.player_border_rankings : []);
+    const wlBorderRaw = (borderFullData && Array.isArray(borderFullData.world_link_border_rankings)) ? borderFullData.world_link_border_rankings : [];
 
-    const wlBorderRaw = (borderFullData && Array.isArray(borderFullData.world_link_border_rankings))
-      ? borderFullData.world_link_border_rankings
-      : [];
-
-    const foundBorderRanks = borderRaw
-      .filter(p => WANTED_BORDER_RANKS.includes(p.rank))
-      .map(p => ({
-        rank: p.rank,
-        score: p.score,
-        speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
-        available: true,
-        isAverage: true,
-        confidenceHours: hoursSinceStart || undefined,
-      }));
+    const foundBorderRanks = borderRaw.filter(p => WANTED_BORDER_RANKS.includes(p.rank)).map(p => ({
+      rank: p.rank, score: p.score,
+      speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+      available: true, isAverage: true,
+      confidenceHours: hoursSinceStart || undefined,
+    }));
     const foundSet = new Set(foundBorderRanks.map(r => r.rank));
-    const missingBorderRanks = WANTED_BORDER_RANKS
-      .filter(r => !foundSet.has(r))
-      .map(r => ({ rank: r, score: null, speed: null, available: false }));
+    const missingBorderRanks = WANTED_BORDER_RANKS.filter(r => !foundSet.has(r)).map(r => ({ rank: r, score: null, speed: null, available: false }));
     const borderRanks = [...foundBorderRanks, ...missingBorderRanks];
     let ranks = [...top100Ranks, ...borderRanks].sort((a,b)=>a.rank-b.rank);
 
@@ -918,9 +617,8 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
     wlOverallRanks = ranks;
 
-    setupWorldLink(data, wlBorderRaw);
+    await setupWorldLink(data, wlBorderRaw);
 
-    // 依目前所在分頁，決定要用哪個結算時間 + 要顯示哪份資料
     if(activeWlTab === 'overall'){
       if(data.aggregate_at){
         CHECKPOINT_DATE = new Date(data.aggregate_at);
@@ -946,19 +644,16 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     }
 
     safeSetCache({
-      eventId: data.id,
-      eventName: data.name,
+      eventId: data.id, eventName: data.name,
       checkpointISO: data.aggregate_at || null,
-      ranks: ranks,
-      fetchedAt: new Date().toISOString(),
+      ranks: ranks, fetchedAt: new Date().toISOString(),
     });
     const missingLabel = missingBorderRanks.length ? `，T${missingBorderRanks.map(r=>r.rank).join('／T')} 目前無官方精彩片段資料` : '';
     document.getElementById('dataNote').textContent =
       `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
 
     const isWorldLink = wlChapters.length > 0;
-    document.getElementById('warmupWarning').style.display =
-      (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
+    document.getElementById('warmupWarning').style.display = (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
 
     if(activeWlTab === 'overall' && !isWorldLink) loadCharacterStats(data.id);
   }
@@ -977,21 +672,16 @@ let wlChapters = [];
 let activeWlTab = 'overall';
 
 function buildChapterRanks(chapter){
-  // ★改動：只保留里程碑名次（T10/T20/T30...），不要完整顯示T1~T100，跟總榜/marathon的邏輯一致
   const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
   const top = (chapter.rankings || [])
     .filter(p => wantedTop.includes(p.rank))
-    .map(p => ({
-      rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0,
-    }));
-  const border = (chapter.borderRankings || []).map(p => ({
-    rank: p.rank, score: p.score, speed: 0, isAverage: true,
-  }));
+    .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
+  const border = (chapter.borderRankings || []).map(p => ({ rank: p.rank, score: p.score, speed: 0, isAverage: true }));
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
 
-
-function setupWorldLink(data, wlBorderRankings){
+// ★改動：改成async，抓完章節資料後呼叫 recent_speed_wl 覆蓋掉不可靠的個人時速/寫死的0
+async function setupWorldLink(data, wlBorderRankings){
   const wlTopChapters = data.world_link_top_100_rankings || [];
   const wlBorderChapters = wlBorderRankings || [];
   const banner = document.getElementById('wlBanner');
@@ -1027,16 +717,26 @@ function setupWorldLink(data, wlBorderRankings){
     chapterMap[key].aggregateAt = chapterMap[key].aggregateAt || ch.aggregate_at;
   });
 
+  // ★新增：抓一次 recent_speed_wl，套用到每個章節的資料上
+  const eventId = data.id;
+  if(!cachedRecentSpeedsWl || Number(cachedRecentSpeedsWl.eventId) !== Number(eventId)){
+    const speedsWl = await fetchRecentSpeedsWl(eventId);
+    cachedRecentSpeedsWl = { eventId, speeds: speedsWl };
+  }
+
   wlChapters = Object.values(chapterMap)
     .sort((a,b) => a.chapter - b.chapter)
-    .map(ch => ({
-      id: ch.character,
-      name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
-      ranks: buildChapterRanks(ch),
-      aggregateAt: ch.aggregateAt || null,
-      startAt: ch.startAt || null,
-      closedAt: ch.closedAt || null,
-    }));
+    .map(ch => {
+      const withSpeeds = overrideChapterWithRecentSpeeds(ch, cachedRecentSpeedsWl.speeds);
+      return {
+        id: ch.character,
+        name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
+        ranks: buildChapterRanks(withSpeeds),
+        aggregateAt: ch.aggregateAt || null,
+        startAt: ch.startAt || null,
+        closedAt: ch.closedAt || null,
+      };
+    });
 
   tabsWrap.innerHTML = '';
   const overallBtn = document.createElement('button');
@@ -1111,15 +811,11 @@ let isLoadingLive = false;
 async function loadLiveGuarded(){
   if(isLoadingLive) return;
   isLoadingLive = true;
-  try{
-    await loadLive();
-  }finally{
-    isLoadingLive = false;
-  }
+  try{ await loadLive(); }
+  finally{ isLoadingLive = false; }
 }
 
 document.getElementById('refreshBtn').addEventListener('click', loadLiveGuarded);
-
 setInterval(loadLiveGuarded, 60000);
 document.getElementById('curScore').addEventListener('input', calcCustom);
 document.getElementById('curSpeed').addEventListener('input', calcCustom);
@@ -1153,9 +849,7 @@ function predictWithConfidence(r, remainHours, histAvgNum){
 function drawShareHeader(ctx, width){
   const bannerImg = document.getElementById('eventBanner');
   const hasBanner = bannerImg && bannerImg.complete && bannerImg.naturalWidth > 0 && bannerImg.style.display !== 'none';
-  const bannerHeight = hasBanner
-    ? Math.min(width * (bannerImg.naturalHeight / bannerImg.naturalWidth), 240)
-    : 0;
+  const bannerHeight = hasBanner ? Math.min(width * (bannerImg.naturalHeight / bannerImg.naturalWidth), 240) : 0;
 
   let y = 0;
   if(hasBanner){
@@ -1185,16 +879,16 @@ function drawShareHeader(ctx, width){
       if(chapter) titleText += `（${chapter.name} 章節榜）`;
     }
   }
-  
-  // ★新增：標題太長時自動縮小字體，避免超出畫布寬度
-  const maxTitleWidth = width - 40; // 左右各留20px邊距
+
+  // 標題太長時自動縮小字體，避免超出畫布寬度
+  const maxTitleWidth = width - 40;
   let titleFontSize = 20;
   ctx.font = `bold ${titleFontSize}px "Space Grotesk", sans-serif`;
   while(ctx.measureText(titleText).width > maxTitleWidth && titleFontSize > 12){
     titleFontSize -= 1;
     ctx.font = `bold ${titleFontSize}px "Space Grotesk", sans-serif`;
   }
-  
+
   ctx.fillText(titleText, 20, y + 22);
   y += 42;
 
@@ -1243,19 +937,13 @@ async function generateShareImage(){
       alert('目前還沒有資料可以生成圖片，請等資料載入完成後再試。');
       return;
     }
-
     const width = 480;
     const rowHeight = 38;
     const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
 
-    const probeCanvas = document.createElement('canvas');
-    probeCanvas.width = width; probeCanvas.height = 10;
-    const probeCtx = probeCanvas.getContext('2d');
     const bannerImgEl = document.getElementById('eventBanner');
     const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
-    const bannerHeightProbe = hasBannerProbe
-      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
-      : 0;
+    const bannerHeightProbe = hasBannerProbe ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240) : 0;
     const headerHeight = bannerHeightProbe + 110;
     const tableHeaderHeight = 40;
     const height = headerHeight + tableHeaderHeight + ranks.length * rowHeight + 30;
@@ -1293,8 +981,7 @@ async function generateShareImage(){
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, rowTop, width, rowHeight);
       }
-      const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined
-        ? charStats.avgByRank[r.rank] : null;
+      const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined ? charStats.avgByRank[r.rank] : null;
       const { predicted } = predictWithConfidence(r, remainHours, histAvgNum);
       ctx.textAlign = 'left';
       ctx.font = 'bold 13px monospace';
@@ -1333,12 +1020,9 @@ async function generateRankShareImage(rank, entry, histAvgRaw, histIsInterpolate
   btn.textContent = '產生中…';
   try{
     const width = 480;
-
     const bannerImgEl = document.getElementById('eventBanner');
     const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
-    const bannerHeightProbe = hasBannerProbe
-      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
-      : 0;
+    const bannerHeightProbe = hasBannerProbe ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240) : 0;
     const headerHeight = bannerHeightProbe + 110;
     const bodyHeight = 220;
     const height = headerHeight + bodyHeight + 40;
@@ -1463,11 +1147,7 @@ function lookupRank(){
       const lr = Math.log(lower.rank), ur = Math.log(upper.rank), tr = Math.log(rank);
       const ratio = (tr - lr) / (ur - lr);
       const ls = Math.log(Math.max(lower.score,1)), us = Math.log(Math.max(upper.score,1));
-      entry = {
-        rank,
-        score: Math.exp(ls + (us - ls) * ratio),
-        speed: lower.speed + (upper.speed - lower.speed) * ratio,
-      };
+      entry = { rank, score: Math.exp(ls + (us - ls) * ratio), speed: lower.speed + (upper.speed - lower.speed) * ratio };
       isInterpolated = true;
     }else if(lower || upper){
       const ref = lower || upper;
@@ -1487,9 +1167,7 @@ function lookupRank(){
     if(charStats.avgByRank[rank] !== undefined){
       histAvgRaw = charStats.avgByRank[rank];
     }else{
-      const histPoints = Object.keys(charStats.avgByRank)
-        .map(k => ({ rank: Number(k), score: charStats.avgByRank[k] }))
-        .sort((a,b) => a.rank - b.rank);
+      const histPoints = Object.keys(charStats.avgByRank).map(k => ({ rank: Number(k), score: charStats.avgByRank[k] })).sort((a,b) => a.rank - b.rank);
       const lower = [...histPoints].reverse().find(p => p.rank < rank);
       const upper = histPoints.find(p => p.rank > rank);
       if(lower && upper){
@@ -1504,9 +1182,7 @@ function lookupRank(){
   const charLabel = charStats ? `（${charStats.character}：過去 ${charStats.sampleCount} 次）` : '';
 
   const { gain, predicted, confidence } = predictWithConfidence(entry, remainHours, histAvgRaw);
-  const confidenceNote = confidence < 0.999
-    ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%）</span>`
-    : '';
+  const confidenceNote = confidence < 0.999 ? `<span class="dim" style="font-size:11px;">（信心度${Math.round(confidence*100)}%）</span>` : '';
   const tag = isInterpolated
     ? '<span class="dim" style="font-size:11px;">（無官方資料，內插估算，非實際數據）</span>'
     : entry.isRecentLog
@@ -1516,15 +1192,11 @@ function lookupRank(){
   const fullPlayer = rank <= 100 ? fullTop100PlayersRaw.find(p => p.rank === rank) : null;
 
   let html = '';
-
   if(fullPlayer){
     html += `
       <div style="margin-top:14px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div>
-            <span class="rank-tag" style="font-size:16px;">T${fullPlayer.rank}</span>
-            <span style="margin-left:10px;font-weight:600;">${fullPlayer.name}</span>
-          </div>
+          <div><span class="rank-tag" style="font-size:16px;">T${fullPlayer.rank}</span><span style="margin-left:10px;font-weight:600;">${fullPlayer.name}</span></div>
           <div class="mono" style="font-size:18px;font-weight:700;">${fmtNum(fullPlayer.score)}</div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
@@ -1539,10 +1211,7 @@ function lookupRank(){
 
   html += `
     <div class="result" style="margin-top:14px;">
-      <div>
-        <div class="result-label">T${rank} 預測分數線 ${tag}</div>
-        <div class="result-value">${fmtNum(predicted)}</div>
-      </div>
+      <div><div class="result-label">T${rank} 預測分數線 ${tag}</div><div class="result-value">${fmtNum(predicted)}</div></div>
       <div class="result-label">目前約 ${fmtNum(entry.score)}　時速約 ${fmtNum(entry.speed)}/h</div>
     </div>
   `;
@@ -1554,7 +1223,6 @@ function lookupRank(){
   `;
 
   resultDiv.innerHTML = html;
-
   lastLookup = { rank, entry, histAvgRaw, histIsInterpolated, remainHours };
   document.getElementById('lookupShareBtn').style.display = 'inline-flex';
 }
@@ -1562,9 +1230,7 @@ function lookupRank(){
 let lastLookup = null;
 
 document.getElementById('lookupBtn').addEventListener('click', lookupRank);
-document.getElementById('lookupRankInput').addEventListener('keydown', e => {
-  if(e.key === 'Enter') lookupRank();
-});
+document.getElementById('lookupRankInput').addEventListener('keydown', e => { if(e.key === 'Enter') lookupRank(); });
 
 function statBlock(title, stats){
   if(!stats) stats = { count:0, score:0, speed:0, average:0 };
@@ -1581,12 +1247,8 @@ function statBlock(title, stats){
 
 const LAST_ID_KEY = 'pjsk_last_lookup_id';
 
-function safeGetLastId(){
-  try{ return localStorage.getItem(LAST_ID_KEY); }catch(e){ return null; }
-}
-function safeSetLastId(id){
-  try{ localStorage.setItem(LAST_ID_KEY, id); }catch(e){ /* 略過，可能是隱私模式或環境限制 */ }
-}
+function safeGetLastId(){ try{ return localStorage.getItem(LAST_ID_KEY); }catch(e){ return null; } }
+function safeSetLastId(id){ try{ localStorage.setItem(LAST_ID_KEY, id); }catch(e){ } }
 
 function refreshLastIdButton(){
   const btn = document.getElementById('lookupIdLastBtn');
@@ -1643,10 +1305,7 @@ function lookupPlayerId(){
   resultDiv.innerHTML = `
     <div style="margin-top:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div>
-          <span class="rank-tag" style="font-size:16px;">T${player.rank}</span>
-          <span style="margin-left:10px;font-weight:600;">${player.name}</span>
-        </div>
+        <div><span class="rank-tag" style="font-size:16px;">T${player.rank}</span><span style="margin-left:10px;font-weight:600;">${player.name}</span></div>
         <div class="mono" style="font-size:18px;font-weight:700;">${fmtNum(player.score)}</div>
       </div>
       ${hasDetailStats ? `
@@ -1679,9 +1338,7 @@ async function generateIdShareImage(player){
 
     const bannerImgEl = document.getElementById('eventBanner');
     const hasBannerProbe = bannerImgEl && bannerImgEl.complete && bannerImgEl.naturalWidth > 0 && bannerImgEl.style.display !== 'none';
-    const bannerHeightProbe = hasBannerProbe
-      ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240)
-      : 0;
+    const bannerHeightProbe = hasBannerProbe ? Math.min(width * (bannerImgEl.naturalHeight / bannerImgEl.naturalWidth), 240) : 0;
     const headerHeight = bannerHeightProbe + 110;
     const playerLineHeight = 40;
     const statsBlockHeight = hasDetailStats ? 130 : 30;
@@ -1729,9 +1386,7 @@ async function generateIdShareImage(player){
         ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#4f46e5';
         ctx.fillText(col.label, cx, y);
-        const rows = [
-          ['次數', s.count], ['得分', s.score], ['時速', s.speed], ['平均分', s.average],
-        ];
+        const rows = [['次數', s.count], ['得分', s.score], ['時速', s.speed], ['平均分', s.average]];
         rows.forEach((row, ri) => {
           const ry = y + 20 + ri * 18;
           ctx.font = '11px monospace';
@@ -1784,11 +1439,10 @@ document.getElementById('lookupIdShareBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId);
-document.getElementById('lookupIdInput').addEventListener('keydown', e => {
-  if(e.key === 'Enter') lookupPlayerId();
-});
+document.getElementById('lookupIdInput').addEventListener('keydown', e => { if(e.key === 'Enter') lookupPlayerId(); });
 
 loadLiveGuarded();
+
 </script>
 </body>
 </html>
