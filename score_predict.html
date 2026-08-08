@@ -385,6 +385,7 @@
 
   <div class="section-title"><span class="num">03</span><h2>輸入名次查詢</h2></div>
   <div class="calc-panel">
+    <p class="result-note" id="lookupScopeHint" style="margin-top:0;margin-bottom:14px;color:var(--purple);"></p>
     <div class="calc-grid">
       <div>
         <label>想查詢的名次</label>
@@ -591,6 +592,20 @@ function calcCustom(){
   resultRemain.textContent = `剩餘約 ${remainHours.toFixed(1)} 小時 · 時速 ${fmtNum(speed)}/h`;
 }
 
+// ★新增：更新「輸入名次查詢」上方的範圍提示，讓使用者知道查詢會跟著目前所在分頁走
+function updateLookupScopeHint(){
+  const hintEl = document.getElementById('lookupScopeHint');
+  if(!hintEl) return;
+  if(wlChapters.length === 0){
+    hintEl.textContent = '';
+    return;
+  }
+  const scopeLabel = activeWlTab === 'overall'
+    ? '總榜'
+    : ((wlChapters.find(c => String(c.id) === activeWlTab) || {}).name || '章節') + ' 章節榜';
+  hintEl.textContent = `📌 目前查詢範圍：${scopeLabel}（跟著上方選擇的分頁切換）`;
+}
+
 function renderAll(ranks, isLive){
   currentRanks = ranks;
   lastFetchedAt = new Date();
@@ -600,6 +615,7 @@ function renderAll(ranks, isLive){
   buildQuickfill(ranks);
   calcCustom();
   updateFreshnessDisplay();
+  updateLookupScopeHint();
   const pill = document.getElementById('statusPill');
   if(isLive){
     pill.textContent = '● 即時資料';
@@ -692,7 +708,6 @@ async function trySekaiBestFetch(){
       player_border_rankings: rankings
         .filter(r => Number(r.rank) > 100)
         .map(r => ({ rank: Number(r.rank), score: Number(r.score) })),
-      // 註：sekai.best 目前無法提供 World Link 章節細分資料，走這條備援路徑時WL分頁籤不會出現，屬已知限制
     };
   }catch(err){
     console.warn('[sekai.best] 連線失敗', err);
@@ -735,8 +750,6 @@ async function applyRecentSpeeds(ranks, eventId){
   return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
 
-// ★改動：改回傳完整的border端點原始物件（不再只回傳player_border_rankings陣列），
-// 這樣呼叫端才能同時拿到 player_border_rankings（一般榜）跟 world_link_border_rankings（WL章節）
 async function tryFetchBorder(retries = 2){
   for(let i = 0; i <= retries; i++){
     try{
@@ -869,8 +882,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
       }));
     fullTop100PlayersRaw = data.player_top_100_rankings || [];
 
-    // ★改動：優先用top100那次順便帶到的border陣列（例如sekai.best合併格式），
-    // 沒有的話才用一開始就在平行跑的borderPromise（這次拿到的是完整物件，不是單純陣列）
     const borderFullData = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
       ? null
       : await borderPromise;
@@ -879,7 +890,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
       ? data.player_border_rankings
       : (borderFullData && Array.isArray(borderFullData.player_border_rankings) ? borderFullData.player_border_rankings : []);
 
-    // ★新增：WL章節的border段資料（只有走HiSekai直連/Apps Script代理才會有，sekai.best備援無此欄位）
     const wlBorderRaw = (borderFullData && Array.isArray(borderFullData.world_link_border_rankings))
       ? borderFullData.world_link_border_rankings
       : [];
@@ -906,7 +916,24 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     fullTop100Raw = await applyRecentSpeeds(fullTop100Raw, data.id);
 
     wlOverallRanks = ranks;
-    renderAll(ranks, true);
+
+    setupWorldLink(data, wlBorderRaw);
+
+    // ★改動：資料重新抓完後，依目前所在分頁決定要重繪哪一份，而不是無條件畫總榜
+    // 這樣切分頁時觸發的重新整理，才會正確更新到「你正在看的那個分頁」
+    if(activeWlTab === 'overall'){
+      renderAll(ranks, true);
+    }else{
+      const chapter = wlChapters.find(c => String(c.id) === activeWlTab);
+      if(chapter){
+        renderAll(chapter.ranks, true);
+      }else{
+        // 找不到對應章節（可能剛切換掉、或章節已結束），退回顯示總榜
+        activeWlTab = 'overall';
+        renderAll(ranks, true);
+      }
+    }
+
     safeSetCache({
       eventId: data.id,
       eventName: data.name,
@@ -917,9 +944,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     const missingLabel = missingBorderRanks.length ? `，T${missingBorderRanks.map(r=>r.rank).join('／T')} 目前無官方精彩片段資料` : '';
     document.getElementById('dataNote').textContent =
       `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
-
-    // ★改動：把WL章節資料傳進去（正確的官方欄位：top端點的 world_link_top_100_rankings + border端點的 world_link_border_rankings）
-    setupWorldLink(data, wlBorderRaw);
 
     const isWorldLink = wlChapters.length > 0;
     document.getElementById('warmupWarning').style.display =
@@ -951,8 +975,6 @@ function buildChapterRanks(chapter){
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
 
-// ★改動：改讀官方文件確認過的真實欄位（world_link_top_100_rankings / world_link_border_rankings），
-// 不再讀不存在的 data.chapters；兩份資料依 chapter 編號合併成同一個章節的完整資料
 function setupWorldLink(data, wlBorderRankings){
   const wlTopChapters = data.world_link_top_100_rankings || [];
   const wlBorderChapters = wlBorderRankings || [];
@@ -1025,6 +1047,11 @@ function switchWlTab(key){
     document.getElementById('charStatsNote').style.display = 'none';
     if(currentRanks.length) buildRankTable(currentRanks, updateCountdown());
   }
+
+  updateLookupScopeHint();
+
+  // ★新增：切換分頁後，順便觸發一次背景刷新，避免「切分頁前的舊資料」被顯示出來
+  loadLiveGuarded();
 }
 
 async function loadCharacterStats(eventId){
