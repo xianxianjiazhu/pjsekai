@@ -341,7 +341,7 @@
           <th>近24h時速</th>
           <th>結算前預估增加</th>
           <th>預測分數線</th>
-          <th>同角色歷史中位數</th>
+          <th id="histColHeader">同角色歷史中位數</th>
         </tr>
       </thead>
       <tbody id="rankTableBody">
@@ -354,6 +354,7 @@
       <li>標示「(均)」的時速為「活動開始至今的平均時速」，只有在還沒有足夠近期紀錄可以計算時才會用這種方式估算；標示「(近Xh實測)」的時速，是用每15分鐘累積的即時紀錄算出來的，會用「目前實際累積的資料時長」當窗口（例如活動開始12小時，就用近12h窗口比較），上限是24小時，資料越多窗口越接近24h、也越穩定（24小時剛好涵蓋一天內衝刺/低潮的完整節奏，比短窗口更適合拿來推估剩餘天數）。</li>
       <li>這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</li>
       <li>標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</li>
+      <li>World Link 活動不顯示「同角色歷史中位數」——WL的分數結構與玩家池和一般活動不同，用一般活動的歷史資料比對不具參考意義。</li>
     </ol>
   </div>
 
@@ -519,13 +520,19 @@ let charStats = null;
 
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
+  // ★新增：只要是WL活動（不管總榜或章節），都隱藏「同角色歷史中位數」欄位
+  // 理由：WL的分數結構、玩家池跟一般活動不同，即使查得到歷史資料，比較意義也很低（尤其明年WL改混隊後，「同角色」的概念本身就跟WL機制不吻合）
+  const isWorldLinkEvent = wlChapters.length > 0;
+
+  document.getElementById('histColHeader').style.display = isWorldLinkEvent ? 'none' : '';
+
   body.innerHTML = '';
   ranks.forEach(r=>{
     const tr = document.createElement('tr');
     if(r.available === false || r.score === null){
       tr.innerHTML = `
         <td class="rank-tag">T${r.rank}</td>
-        <td class="mono dim" colspan="5">— 無官方資料</td>
+        <td class="mono dim" colspan="${isWorldLinkEvent ? 4 : 5}">— 無官方資料</td>
       `;
       body.appendChild(tr);
       return;
@@ -549,7 +556,7 @@ function buildRankTable(ranks, remainHours){
       <td class="mono dim">${speedLabel}</td>
       <td class="mono dim">+${fmtNum(gain)}${confidenceTag}</td>
       <td class="predicted">${fmtNum(predicted)}</td>
-      <td class="mono dim">${histAvg}</td>
+      ${isWorldLinkEvent ? '' : `<td class="mono dim">${histAvg}</td>`}
     `;
     body.appendChild(tr);
   });
@@ -592,7 +599,6 @@ function calcCustom(){
   resultRemain.textContent = `剩餘約 ${remainHours.toFixed(1)} 小時 · 時速 ${fmtNum(speed)}/h`;
 }
 
-// ★新增：更新「輸入名次查詢」上方的範圍提示，讓使用者知道查詢會跟著目前所在分頁走
 function updateLookupScopeHint(){
   const hintEl = document.getElementById('lookupScopeHint');
   if(!hintEl) return;
@@ -919,8 +925,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
     setupWorldLink(data, wlBorderRaw);
 
-    // ★改動：資料重新抓完後，依目前所在分頁決定要重繪哪一份，而不是無條件畫總榜
-    // 這樣切分頁時觸發的重新整理，才會正確更新到「你正在看的那個分頁」
     if(activeWlTab === 'overall'){
       renderAll(ranks, true);
     }else{
@@ -928,7 +932,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
       if(chapter){
         renderAll(chapter.ranks, true);
       }else{
-        // 找不到對應章節（可能剛切換掉、或章節已結束），退回顯示總榜
         activeWlTab = 'overall';
         renderAll(ranks, true);
       }
@@ -949,7 +952,8 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     document.getElementById('warmupWarning').style.display =
       (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
 
-    if(activeWlTab === 'overall') loadCharacterStats(data.id);
+    // ★改動：WL活動不查同角色歷史中位數（不管總榜或章節），概念上跟WL機制不吻合，即使有資料也沒有比較意義
+    if(activeWlTab === 'overall' && !isWorldLink) loadCharacterStats(data.id);
   }
 }
 
@@ -1038,7 +1042,7 @@ function switchWlTab(key){
 
   if(key === 'overall'){
     renderAll(wlOverallRanks, true);
-    if(liveData) loadCharacterStats(liveData.id);
+    // ★改動：WL活動的總榜，不查同角色歷史中位數
   }else{
     const chapter = wlChapters.find(c => String(c.id) === key);
     if(!chapter) return;
@@ -1050,7 +1054,6 @@ function switchWlTab(key){
 
   updateLookupScopeHint();
 
-  // ★新增：切換分頁後，順便觸發一次背景刷新，避免「切分頁前的舊資料」被顯示出來
   loadLiveGuarded();
 }
 
