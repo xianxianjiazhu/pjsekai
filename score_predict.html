@@ -1175,7 +1175,6 @@ function drawShareHeader(ctx, width){
   }
 
   ctx.fillStyle = '#1f2430';
-  ctx.font = 'bold 20px "Space Grotesk", sans-serif';
   ctx.textAlign = 'left';
   let titleText = document.getElementById('eventName').textContent.trim();
   if(wlChapters.length > 0){
@@ -1186,6 +1185,16 @@ function drawShareHeader(ctx, width){
       if(chapter) titleText += `（${chapter.name} 章節榜）`;
     }
   }
+  
+  // ★新增：標題太長時自動縮小字體，避免超出畫布寬度
+  const maxTitleWidth = width - 40; // 左右各留20px邊距
+  let titleFontSize = 20;
+  ctx.font = `bold ${titleFontSize}px "Space Grotesk", sans-serif`;
+  while(ctx.measureText(titleText).width > maxTitleWidth && titleFontSize > 12){
+    titleFontSize -= 1;
+    ctx.font = `bold ${titleFontSize}px "Space Grotesk", sans-serif`;
+  }
+  
   ctx.fillText(titleText, 20, y + 22);
   y += 42;
 
