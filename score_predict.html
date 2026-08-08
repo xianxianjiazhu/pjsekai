@@ -977,14 +977,19 @@ let wlChapters = [];
 let activeWlTab = 'overall';
 
 function buildChapterRanks(chapter){
-  const top = (chapter.rankings || []).map(p => ({
-    rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0,
-  }));
+  // ★改動：只保留里程碑名次（T10/T20/T30...），不要完整顯示T1~T100，跟總榜/marathon的邏輯一致
+  const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
+  const top = (chapter.rankings || [])
+    .filter(p => wantedTop.includes(p.rank))
+    .map(p => ({
+      rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0,
+    }));
   const border = (chapter.borderRankings || []).map(p => ({
     rank: p.rank, score: p.score, speed: 0, isAverage: true,
   }));
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
+
 
 function setupWorldLink(data, wlBorderRankings){
   const wlTopChapters = data.world_link_top_100_rankings || [];
