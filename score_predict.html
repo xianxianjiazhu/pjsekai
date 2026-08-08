@@ -355,6 +355,7 @@
       <li>這裡算的是「排名門檻」的漲幅，不追蹤特定玩家個人，不會受到某個玩家剛好衝很快/很慢、甚至個人資料異常的影響，比追蹤個人時速更適合拿來預測分數線，僅供參考。</li>
       <li>標示「(信心度X%)」代表資料還沒累積滿24小時：如果查得到「同角色歷史中位數」，預測分數線會用信心度混合「即時外推」跟「歷史中位數」（信心度越低，越參考歷史中位數；沒有歷史資料才單純打折外推增量），資料累積滿24小時後會自動改用純即時外推，不再參考歷史中位數。</li>
       <li>World Link 活動不顯示「同角色歷史中位數」——WL的分數結構與玩家池和一般活動不同，用一般活動的歷史資料比對不具參考意義。</li>
+      <li>World Link 各章節有各自獨立的結算時間，切換分頁時上方倒數計時與預測分數線會自動改用該章節的結算時間，不會沿用總榜的結算時間。</li>
     </ol>
   </div>
 
@@ -520,8 +521,6 @@ let charStats = null;
 
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
-  // ★新增：只要是WL活動（不管總榜或章節），都隱藏「同角色歷史中位數」欄位
-  // 理由：WL的分數結構、玩家池跟一般活動不同，即使查得到歷史資料，比較意義也很低（尤其明年WL改混隊後，「同角色」的概念本身就跟WL機制不吻合）
   const isWorldLinkEvent = wlChapters.length > 0;
 
   document.getElementById('histColHeader').style.display = isWorldLinkEvent ? 'none' : '';
@@ -863,10 +862,6 @@ async function loadLive(){
   {
     const data = result.data;
     liveData = data;
-    if(data.aggregate_at){
-      CHECKPOINT_DATE = new Date(data.aggregate_at);
-      renderCheckpointStr();
-    }
     document.getElementById('eventName').textContent =
       `第 ${data.id} 期・${data.name}`;
     setEventBanner(data.id);
@@ -925,14 +920,27 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
 
     setupWorldLink(data, wlBorderRaw);
 
+    // 依目前所在分頁，決定要用哪個結算時間 + 要顯示哪份資料
     if(activeWlTab === 'overall'){
+      if(data.aggregate_at){
+        CHECKPOINT_DATE = new Date(data.aggregate_at);
+        renderCheckpointStr();
+      }
       renderAll(ranks, true);
     }else{
       const chapter = wlChapters.find(c => String(c.id) === activeWlTab);
       if(chapter){
+        if(chapter.aggregateAt){
+          CHECKPOINT_DATE = new Date(chapter.aggregateAt);
+          renderCheckpointStr();
+        }
         renderAll(chapter.ranks, true);
       }else{
         activeWlTab = 'overall';
+        if(data.aggregate_at){
+          CHECKPOINT_DATE = new Date(data.aggregate_at);
+          renderCheckpointStr();
+        }
         renderAll(ranks, true);
       }
     }
@@ -952,7 +960,6 @@ const WANTED_BORDER_RANKS = MILESTONE_RANKS.filter(r => r > 100);
     document.getElementById('warmupWarning').style.display =
       (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
 
-    // ★改動：WL活動不查同角色歷史中位數（不管總榜或章節），概念上跟WL機制不吻合，即使有資料也沒有比較意義
     if(activeWlTab === 'overall' && !isWorldLink) loadCharacterStats(data.id);
   }
 }
@@ -1001,12 +1008,18 @@ function setupWorldLink(data, wlBorderRankings){
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = ch.character;
     chapterMap[key].rankings = ch.player_rankings || [];
+    chapterMap[key].startAt = ch.start_at;
+    chapterMap[key].closedAt = ch.closed_at;
+    chapterMap[key].aggregateAt = ch.aggregate_at;
   });
   wlBorderChapters.forEach(ch => {
     const key = ch.chapter;
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = chapterMap[key].character || ch.character;
     chapterMap[key].borderRankings = ch.player_borders || [];
+    chapterMap[key].startAt = chapterMap[key].startAt || ch.start_at;
+    chapterMap[key].closedAt = chapterMap[key].closedAt || ch.closed_at;
+    chapterMap[key].aggregateAt = chapterMap[key].aggregateAt || ch.aggregate_at;
   });
 
   wlChapters = Object.values(chapterMap)
@@ -1015,6 +1028,9 @@ function setupWorldLink(data, wlBorderRankings){
       id: ch.character,
       name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
       ranks: buildChapterRanks(ch),
+      aggregateAt: ch.aggregateAt || null,
+      startAt: ch.startAt || null,
+      closedAt: ch.closedAt || null,
     }));
 
   tabsWrap.innerHTML = '';
@@ -1041,11 +1057,18 @@ function switchWlTab(key){
   });
 
   if(key === 'overall'){
+    if(liveData && liveData.aggregate_at){
+      CHECKPOINT_DATE = new Date(liveData.aggregate_at);
+      renderCheckpointStr();
+    }
     renderAll(wlOverallRanks, true);
-    // ★改動：WL活動的總榜，不查同角色歷史中位數
   }else{
     const chapter = wlChapters.find(c => String(c.id) === key);
     if(!chapter) return;
+    if(chapter.aggregateAt){
+      CHECKPOINT_DATE = new Date(chapter.aggregateAt);
+      renderCheckpointStr();
+    }
     renderAll(chapter.ranks, true);
     charStats = null;
     document.getElementById('charStatsNote').style.display = 'none';
@@ -1053,7 +1076,6 @@ function switchWlTab(key){
   }
 
   updateLookupScopeHint();
-
   loadLiveGuarded();
 }
 
