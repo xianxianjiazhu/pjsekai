@@ -476,15 +476,14 @@ async function fetchRecentSpeedsWl(eventId){
   }
 }
 
-function overrideChapterWithRecentSpeeds(chapter, speeds){
-  if(!speeds) return chapter;
-  const applyToList = (list) => list.map(r => {
-    const key = `${chapter.chapter}_${chapter.character}_${r.rank}`;
+function overrideChapterWithRecentSpeeds(ranksArray, chapterMeta, speeds){
+  if(!speeds) return ranksArray;
+  return ranksArray.map(r => {
+    const key = `${chapterMeta.chapter}_${chapterMeta.character}_${r.rank}`;
     const measured = speeds[key];
     if(measured === undefined || measured === null) return r;
     return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
   });
-  return { ...chapter, rankings: applyToList(chapter.rankings || []), borderRankings: applyToList(chapter.borderRankings || []) };
 }
 
 async function tryFetchBorder(retries = 2){
@@ -670,12 +669,25 @@ let wlOverallRanks = [];
 let wlChapters = [];
 let activeWlTab = 'overall';
 
-function buildChapterRanks(chapter){
+function buildChapterRanks(chapter, hoursSinceStart){
   const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
   const top = (chapter.rankings || [])
     .filter(p => wantedTop.includes(p.rank))
-    .map(p => ({ rank: p.rank, score: p.score, speed: (p.last_24h_stats && p.last_24h_stats.speed) || 0 }));
-  const border = (chapter.borderRankings || []).map(p => ({ rank: p.rank, score: p.score, speed: 0, isAverage: true }));
+    .map(p => ({
+      rank: p.rank, score: p.score,
+      speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+      isAverage: !!hoursSinceStart,
+      confidenceHours: hoursSinceStart || undefined,
+    }));
+  const wantedBorder = MILESTONE_RANKS.filter(r => r > 100);
+  const border = (chapter.borderRankings || [])
+    .filter(p => wantedBorder.includes(p.rank))
+    .map(p => ({
+      rank: p.rank, score: p.score,
+      speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
+      isAverage: !!hoursSinceStart,
+      confidenceHours: hoursSinceStart || undefined,
+    }));
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
 
@@ -726,11 +738,13 @@ async function setupWorldLink(data, wlBorderRankings){
   wlChapters = Object.values(chapterMap)
     .sort((a,b) => a.chapter - b.chapter)
     .map(ch => {
-      const withSpeeds = overrideChapterWithRecentSpeeds(ch, cachedRecentSpeedsWl.speeds);
+      const chapterHoursSinceStart = ch.startAt ? Math.max(0.01, (new Date() - new Date(ch.startAt)) / 3600000) : null;
+      const builtRanks = buildChapterRanks(ch, chapterHoursSinceStart);
+      const overriddenRanks = overrideChapterWithRecentSpeeds(builtRanks, ch, cachedRecentSpeedsWl.speeds);
       return {
         id: ch.character,
         name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
-        ranks: buildChapterRanks(withSpeeds),
+        ranks: overriddenRanks,
         aggregateAt: ch.aggregateAt || null,
         startAt: ch.startAt || null,
         closedAt: ch.closedAt || null,
