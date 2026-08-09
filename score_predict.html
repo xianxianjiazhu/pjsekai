@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -504,7 +503,7 @@ async function tryFetchBorder(retries = 2){
   console.warn('border 資料重試多次仍失敗，這次沒有border資料');
   return null;
 }
-function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
+  function renderFallback(source, eventId, eventName, ranks, fetchedAtDate){
   const sourceLabel = source === 'borderlog' ? 'border_log' : '本機瀏覽器快取';
   document.getElementById('eventName').textContent = `第 ${eventId} 期・${eventName}（非即時資料・來源：${sourceLabel}）`;
   setEventBanner(eventId);
@@ -1442,7 +1441,6 @@ document.getElementById('lookupIdBtn').addEventListener('click', lookupPlayerId)
 document.getElementById('lookupIdInput').addEventListener('keydown', e => { if(e.key === 'Enter') lookupPlayerId(); });
 
 loadLiveGuarded();
-
 </script>
 </body>
 </html>
