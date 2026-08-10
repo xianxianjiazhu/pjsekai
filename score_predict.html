@@ -105,6 +105,7 @@
 
   <div class="section-title"><span class="num">01</span><h2>各名次即時分數與預測分數線</h2></div>
   <p id="wlBanner" class="wl-banner">🔗 這是 World Link 活動，下面可以切換「總榜」或各章節角色的排名／預測分數線</p>
+  <p id="wlOverallNote" class="wl-banner" style="color:var(--amber);background:rgba(217,119,6,0.08);border-color:rgba(217,119,6,0.3);"></p>
   <div id="wlTabs" class="wl-tabs"></div>
   <div class="freshness">
     <span>資料獲取時間：<b id="fetchedAgo">—</b></span>
@@ -277,7 +278,11 @@ let charStats = null;
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
   const isWorldLinkEvent = wlChapters.length > 0;
+  // ★新增：WL活動的總榜（不是章節），因為跨章節累積機制還沒驗證，關閉預測欄位
+  const isWLOverall = isWorldLinkEvent && activeWlTab === 'overall';
+
   document.getElementById('histColHeader').style.display = isWorldLinkEvent ? 'none' : '';
+
   body.innerHTML = '';
   ranks.forEach(r=>{
     const tr = document.createElement('tr');
@@ -286,14 +291,28 @@ function buildRankTable(ranks, remainHours){
       body.appendChild(tr);
       return;
     }
-    const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined ? charStats.avgByRank[r.rank] : null;
-    const { gain, predicted, confidence } = predictWithConfidence(r, remainHours, histAvgNum);
-    const confidenceTag = confidence < 0.999 ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>` : '';
+
     const speedLabel = r.isRecentLog
       ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
       : r.isAverage
         ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
         : `${fmtNum(r.speed)}/h`;
+
+    // ★新增：WL總榜時，後兩欄改顯示提示文字，不計算預測
+    if(isWLOverall){
+      tr.innerHTML = `
+        <td class="rank-tag">T${r.rank}</td>
+        <td class="mono">${fmtNum(r.score)}</td>
+        <td class="mono dim">${speedLabel}</td>
+        <td class="mono dim" colspan="2" style="text-align:center;">— 總榜跨章節累積機制尚在驗證，暫不提供預測</td>
+      `;
+      body.appendChild(tr);
+      return;
+    }
+
+    const histAvgNum = charStats && charStats.avgByRank && charStats.avgByRank[r.rank] !== undefined ? charStats.avgByRank[r.rank] : null;
+    const { gain, predicted, confidence } = predictWithConfidence(r, remainHours, histAvgNum);
+    const confidenceTag = confidence < 0.999 ? ` <span class="dim" style="font-size:10px;">(信心度${Math.round(confidence*100)}%)</span>` : '';
     const histAvg = histAvgNum !== null ? fmtNum(histAvgNum) : '<span class="dim">—</span>';
     tr.innerHTML = `<td class="rank-tag">T${r.rank}</td><td class="mono">${fmtNum(r.score)}</td><td class="mono dim">${speedLabel}</td><td class="mono dim">+${fmtNum(gain)}${confidenceTag}</td><td class="predicted">${fmtNum(predicted)}</td>${isWorldLinkEvent ? '' : `<td class="mono dim">${histAvg}</td>`}`;
     body.appendChild(tr);
@@ -338,6 +357,19 @@ function updateLookupScopeHint(){
   hintEl.textContent = `📌 目前查詢範圍：${scopeLabel}（跟著上方選擇的分頁切換）`;
 }
 
+function updateWLOverallNote(){
+  const noteEl = document.getElementById('wlOverallNote');
+  if(!noteEl) return;
+  const isWLOverall = wlChapters.length > 0 && activeWlTab === 'overall';
+  if(isWLOverall){
+    noteEl.classList.add('active');
+    noteEl.textContent = '⚠ 總榜是跨章節整合的排名，玩家可能只衝其中一個章節就停手，用目前速度線性外推到活動結束容易嚴重高估，因此總榜暫不提供預測分數線，僅顯示目前分數與近期時速供參考。各章節分頁（例如上方角色分頁）的預測仍正常提供。';
+  }else{
+    noteEl.classList.remove('active');
+    noteEl.textContent = '';
+  }
+}
+
 function renderAll(ranks, isLive){
   currentRanks = ranks;
   lastFetchedAt = new Date();
@@ -348,6 +380,7 @@ function renderAll(ranks, isLive){
   calcCustom();
   updateFreshnessDisplay();
   updateLookupScopeHint();
+  updateWLOverallNote();
   const pill = document.getElementById('statusPill');
   if(isLive){
     pill.textContent = '● 即時資料';
