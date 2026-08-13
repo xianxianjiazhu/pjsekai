@@ -292,11 +292,13 @@ function buildRankTable(ranks, remainHours){
       return;
     }
 
-    const speedLabel = r.isRecentLog
-      ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
-      : r.isAverage
-        ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
-        : `${fmtNum(r.speed)}/h`;
+    const speedLabel = remainHours <= 0
+      ? `<span class="dim">0/h（已結算）</span>`
+      : r.isRecentLog
+        ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(近${r.recentWindowHours >= 20 ? '24' : Math.round(r.recentWindowHours)}h實測)</span>`
+        : r.isAverage
+          ? `${fmtNum(r.speed)}/h <span class="dim" style="font-size:10px;">(均)</span>`
+          : `${fmtNum(r.speed)}/h`;
 
     // ★新增：WL總榜時，後兩欄改顯示提示文字，不計算預測
     if(isWLOverall){
