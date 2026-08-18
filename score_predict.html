@@ -279,7 +279,8 @@ function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
   const isWorldLinkEvent = wlChapters.length > 0;
   // ★新增：WL活動的總榜（不是章節），因為跨章節累積機制還沒驗證，關閉預測欄位
-  const isWLOverall = isWorldLinkEvent && activeWlTab === 'overall';
+  const WL_OVERALL_PREDICT_THRESHOLD_HOURS = 72;
+  const isWLOverall = isWorldLinkEvent && activeWlTab === 'overall' && remainHours > WL_OVERALL_PREDICT_THRESHOLD_HOURS;
 
   document.getElementById('histColHeader').style.display = isWorldLinkEvent ? 'none' : '';
 
@@ -362,10 +363,11 @@ function updateLookupScopeHint(){
 function updateWLOverallNote(){
   const noteEl = document.getElementById('wlOverallNote');
   if(!noteEl) return;
-  const isWLOverall = wlChapters.length > 0 && activeWlTab === 'overall';
-  if(isWLOverall){
+  const remainHours = CHECKPOINT_DATE ? Math.max(0, (CHECKPOINT_DATE - new Date()) / 3600000) : 0;
+  const isWLOverallBlocked = wlChapters.length > 0 && activeWlTab === 'overall' && remainHours > 72;
+  if(isWLOverallBlocked){
     noteEl.classList.add('active');
-    noteEl.textContent = '⚠ 總榜是跨章節整合的排名，玩家可能只衝其中一個章節就停手，用目前速度線性外推到活動結束容易嚴重高估，因此總榜暫不提供預測分數線，僅顯示目前分數與近期時速供參考。各章節分頁（例如上方角色分頁）的預測仍正常提供。';
+    noteEl.textContent = '⚠ 總榜是跨章節整合的排名，玩家可能只衝其中一個章節就停手，用目前速度線性外推到活動結束容易嚴重高估，因此距結算還很遠時暫不提供預測。距結算72小時內，誤差會被限制在較小範圍，屆時會自動開放預測分數線。';
   }else{
     noteEl.classList.remove('active');
     noteEl.textContent = '';
