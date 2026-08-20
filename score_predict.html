@@ -1180,7 +1180,10 @@ function lookupRank(){
   let entry = null;
   let isInterpolated = false;
 
-  if(rank <= 100){
+  // ★改動：只有「總榜」分頁才優先用 fullTop100Raw；章節分頁一律用 currentRanks（該分頁自己的資料）
+  const useTop100Pool = activeWlTab === 'overall';
+
+  if(useTop100Pool && rank <= 100){
     entry = fullTop100Raw.find(r => r.rank === rank);
   }
   if(!entry){
@@ -1188,27 +1191,28 @@ function lookupRank(){
     if(known) entry = known;
   }
   if(!entry){
-    const pool = [...fullTop100Raw, ...currentRanks.filter(r => r.available !== false && r.score !== null)]
-      .filter((r,i,arr) => arr.findIndex(x => x.rank === r.rank) === i)
-      .sort((a,b) => a.rank - b.rank);
+    const pool = useTop100Pool
+      ? [...fullTop100Raw, ...currentRanks.filter(r => r.available !== false && r.score !== null)]
+          .filter((r,i,arr) => arr.findIndex(x => x.rank === r.rank) === i)
+          .sort((a,b) => a.rank - b.rank)
+      : currentRanks.filter(r => r.available !== false && r.score !== null).sort((a,b) => a.rank - b.rank);
     const lower = [...pool].reverse().find(r => r.rank < rank);
     const upper = pool.find(r => r.rank > rank);
     if(lower && upper){
       const lr = Math.log(lower.rank), ur = Math.log(upper.rank), tr = Math.log(rank);
       const ratio = (tr - lr) / (ur - lr);
       const ls = Math.log(Math.max(lower.score,1)), us = Math.log(Math.max(upper.score,1));
-      entry = { rank, score: Math.exp(ls + (us - ls) * ratio), speed: lower.speed + (upper.speed - lower.speed) * ratio };
+      entry = {
+        rank,
+        score: Math.exp(ls + (us - ls) * ratio),
+        speed: lower.speed + (upper.speed - lower.speed) * ratio,
+      };
       isInterpolated = true;
     }else if(lower || upper){
       const ref = lower || upper;
       entry = { rank, score: ref.score, speed: ref.speed };
       isInterpolated = true;
     }
-  }
-
-  if(!entry){
-    resultDiv.innerHTML = `<p class="result-note">目前還沒有足夠的資料可以估算這個名次，稍後再試一次。</p>`;
-    return;
   }
 
   let histAvgRaw = null;
