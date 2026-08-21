@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>當期排行榜</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap{max-width:820px;}
+  .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .event-name{color:var(--text-dim);font-size:14px;margin:0 0 4px;}
+  .freshness-tag{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text-dim);}
+
+  .wl-tabs{display:none;gap:6px;flex-wrap:wrap;background:var(--bg-panel-2);border:1px solid var(--line);border-radius:12px;padding:6px;margin-bottom:16px;}
+  .wl-tabs.active{display:flex;}
+  .wl-tab{flex:1 1 auto;min-width:76px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;transition:.15s;white-space:nowrap;}
+  .wl-tab:hover{color:var(--text);background:rgba(0,0,0,0.04);}
+  .wl-tab.active{background:var(--purple);color:#ffffff;}
+  .wl-tab.overall-tab{color:var(--cyan);}
+  .wl-tab.overall-tab.active{background:var(--cyan);color:#ffffff;}
+
+  .list{display:flex;flex-direction:column;gap:8px;}
+  .row-card{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .row-card.top1{border-color:var(--cyan);}
+  .row-main{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:14px 16px;
+    cursor:pointer;
+  }
+  .row-rank{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:15px;
+    color:var(--text-dim);
+    width:34px;
+    flex:0 0 auto;
+    text-align:center;
+  }
+  .row-rank.r1{color:#d4af37;}
+  .row-rank.r2{color:#9ca3af;}
+  .row-rank.r3{color:#c2793a;}
+  .row-name{flex:1 1 auto;min-width:0;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .row-played{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .row-score-wrap{flex:0 0 auto;text-align:right;}
+  .row-score{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--text);}
+  .row-caret{flex:0 0 auto;color:var(--text-dim);font-size:12px;transition:transform .15s;}
+  .row-card.expanded .row-caret{transform:rotate(180deg);}
+
+  .row-detail{
+    display:none;
+    padding:0 16px 16px;
+    border-top:1px solid var(--line);
+  }
+  .row-card.expanded .row-detail{display:block;padding-top:14px;}
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:10px;
+  }
+  .stat-box{
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px;
+  }
+  .stat-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--cyan);
+    margin-bottom:8px;
+    text-align:center;
+  }
+  .stat-line{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;}
+  .stat-line:last-child{margin-bottom:0;}
+  .stat-line .k{color:var(--text-dim);}
+  .stat-line .v{font-family:'JetBrains Mono',monospace;}
+
+  .status-msg{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:var(--text-dim);
+    padding:40px;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>當期排行榜</h1>
+  <p class="event-name" id="eventName">載入中…</p>
+
+  <div class="top-row">
+    <span class="freshness-tag" id="freshness"></span>
+    <button id="refreshBtn">↻ 重新整理</button>
+  </div>
+
+  <div class="wl-tabs" id="wlTabs"></div>
+
+  <div id="listWrap">
+    <div class="status-msg">載入中…</div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-note">資料來源：<a href="https://docs.hisekai.org/zh/docs" target="_blank" rel="noopener">Hi Sekai API</a>（每分鐘更新）</span>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
+
+const CHARACTER_MAP = {
+  1:'星乃一歌', 2:'天馬咲希', 3:'望月穗波', 4:'日野森志步', 5:'花里實乃理',
+  6:'桐谷遙', 7:'桃井愛莉', 8:'日野森雫', 9:'小豆澤心羽', 10:'白石杏',
+  11:'東雲彰人', 12:'青柳冬彌', 13:'天馬司', 14:'鳳笑夢', 15:'草薙寧寧',
+  16:'神代類', 17:'宵崎奏', 18:'朝比奈真冬', 19:'東雲繪名', 20:'曉山瑞希',
+  21:'初音未來', 22:'鏡音鈴', 23:'鏡音連', 24:'巡音流歌', 25:'MEIKO', 26:'KAITO',
+};
+
+let overallPlayers = [];  // 總榜（含 marathon 或 WL 總榜）
+let wlChapterPlayers = {}; // { characterId: [player, ...] }
+let wlChapterOrder = [];   // [characterId, ...] 依章節順序
+let isWorldLinkEvent = false;
+let activeTab = 'overall';
+let lastFetch = null;
+
+function fmtNum(n){
+  if(n === null || n === undefined || n === '') return '—';
+  return Math.round(n).toLocaleString('zh-TW');
+}
+
+function relTime(dateStr){
+  if(!dateStr) return null;
+  const sec = Math.floor((new Date() - new Date(dateStr)) / 1000);
+  if(sec < 0) return '剛剛';
+  if(sec < 60) return `${sec}秒前`;
+  const min = Math.floor(sec / 60);
+  if(min < 60) return `${min}分鐘前`;
+  const hr = Math.floor(min / 60);
+  if(hr < 48) return `${hr}小時前`;
+  return `${Math.floor(hr / 24)}天前`;
+}
+
+async function fetchWithTimeout(url, timeoutMs = 8000){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function statBlock(title, stats){
+  if(!stats) stats = { count:0, score:0, speed:0, average:0 };
+  return `
+    <div class="stat-box">
+      <div class="stat-title">${title}</div>
+      <div class="stat-line"><span class="k">次數</span><span class="v">${fmtNum(stats.count)}</span></div>
+      <div class="stat-line"><span class="k">得分</span><span class="v">${fmtNum(stats.score)}</span></div>
+      <div class="stat-line"><span class="k">時速</span><span class="v">${fmtNum(stats.speed)}</span></div>
+      <div class="stat-line"><span class="k">平均分</span><span class="v">${fmtNum(stats.average)}</span></div>
+    </div>
+  `;
+}
+
+function renderList(){
+  const wrap = document.getElementById('listWrap');
+  const players = activeTab === 'overall' ? overallPlayers : (wlChapterPlayers[activeTab] || []);
+
+  if(!players.length){
+    wrap.innerHTML = `<div class="status-msg">目前沒有排行資料</div>`;
+    reportHeightToParent();
+    return;
+  }
+
+  const rows = [...players].sort((a,b) => a.rank - b.rank).map(p => {
+    const rankClass = p.rank === 1 ? 'r1' : p.rank === 2 ? 'r2' : p.rank === 3 ? 'r3' : '';
+    const playedNote = relTime(p.last_played_at);
+    return `
+      <div class="row-card ${p.rank === 1 ? 'top1' : ''}" data-rank="${p.rank}">
+        <div class="row-main">
+          <div class="row-rank ${rankClass}">${p.rank}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="row-name">${escapeHtml(p.name || '（無名稱）')}</div>
+            ${playedNote ? `<div class="row-played">最近遊玩：${playedNote}</div>` : ''}
+          </div>
+          <div class="row-score-wrap">
+            <div class="row-score">${fmtNum(p.score)}</div>
+          </div>
+          <div class="row-caret">▼</div>
+        </div>
+        <div class="row-detail">
+          <div class="stat-grid">
+            ${statBlock('過去 1 小時', p.last_1h_stats)}
+            ${statBlock('過去 3 小時', p.last_3h_stats)}
+            ${statBlock('過去 24 小時', p.last_24h_stats)}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.innerHTML = `<div class="list">${rows}</div>`;
+
+  wrap.querySelectorAll('.row-card').forEach(card => {
+    card.querySelector('.row-main').addEventListener('click', () => {
+      card.classList.toggle('expanded');
+      reportHeightToParent();
+    });
+  });
+
+  reportHeightToParent();
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function buildWlTabs(){
+  const tabsWrap = document.getElementById('wlTabs');
+  if(!isWorldLinkEvent){
+    tabsWrap.classList.remove('active');
+    tabsWrap.innerHTML = '';
+    return;
+  }
+  tabsWrap.classList.add('active');
+  tabsWrap.innerHTML = '';
+
+  const overallBtn = document.createElement('button');
+  overallBtn.className = 'wl-tab overall-tab' + (activeTab === 'overall' ? ' active' : '');
+  overallBtn.textContent = '總榜';
+  overallBtn.onclick = () => switchTab('overall');
+  tabsWrap.appendChild(overallBtn);
+
+  wlChapterOrder.forEach(charId => {
+    const btn = document.createElement('button');
+    btn.className = 'wl-tab' + (activeTab === String(charId) ? ' active' : '');
+    btn.textContent = CHARACTER_MAP[charId] || `角色${charId}`;
+    btn.onclick = () => switchTab(String(charId));
+    tabsWrap.appendChild(btn);
+  });
+}
+
+function switchTab(key){
+  activeTab = key;
+  buildWlTabs();
+  renderList();
+}
+
+async function loadRanking(){
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=top100`);
+    const data = await res.json();
+
+    if(data.error){
+      document.getElementById('listWrap').innerHTML = `<div class="status-msg">載入失敗：${data.message || data.error}</div>`;
+      return;
+    }
+
+    document.getElementById('eventName').textContent = data.id ? `第 ${data.id} 期・${data.name || ''}` : (data.name || '目前沒有活動進行中');
+
+    overallPlayers = data.player_top_100_rankings || [];
+
+    const wlTopChapters = data.world_link_top_100_rankings || [];
+    isWorldLinkEvent = wlTopChapters.length > 0;
+
+    wlChapterPlayers = {};
+    wlChapterOrder = [];
+    if(isWorldLinkEvent){
+      wlTopChapters
+        .slice()
+        .sort((a,b) => a.chapter - b.chapter)
+        .forEach(ch => {
+          wlChapterPlayers[String(ch.character)] = ch.player_rankings || [];
+          wlChapterOrder.push(ch.character);
+        });
+      if(activeTab !== 'overall' && !wlChapterPlayers[activeTab]){
+        activeTab = 'overall';
+      }
+    }else{
+      activeTab = 'overall';
+    }
+
+    lastFetch = new Date();
+    document.getElementById('freshness').textContent = `更新於 ${relTime(lastFetch.toISOString())}`;
+
+    buildWlTabs();
+    renderList();
+  }catch(err){
+    console.warn('排行榜載入失敗', err);
+    document.getElementById('listWrap').innerHTML = `<div class="status-msg">載入失敗，請稍後點「重新整理」再試一次</div>`;
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadRanking);
+
+loadRanking();
+setInterval(loadRanking, 60000);
+
+// ========== 主動回報頁面高度給外層 index.html ==========
+let lastReportedHeight = 0;
+function reportHeightToParent(){
+  if(window.parent === window) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const h = document.documentElement.scrollHeight;
+      if(Math.abs(h - lastReportedHeight) < 2) return;
+      lastReportedHeight = h;
+      window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
+    });
+  });
+}
+window.addEventListener('load', reportHeightToParent);
+if(window.ResizeObserver){
+  new ResizeObserver(reportHeightToParent).observe(document.body);
+}
+</script>
+</body>
+</html>

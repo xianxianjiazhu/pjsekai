@@ -26,8 +26,8 @@
     height: calc(100vh - 120px);
     min-height: calc(100vh - 120px);
   }
-  /* 分數線預測、同角色歷史分析、WL分析都改成照實際內容高度顯示，不強制填滿視窗（內容比較短時不留一大片空白） */
-  #frame4, #frame5, #frame6{
+  /* 分數線預測、同角色歷史分析、WL分析、當期排行榜都改成照實際內容高度顯示，不強制填滿視窗（內容比較短時不留一大片空白） */
+  #frame4, #frame5, #frame6, #frame7{
     min-height: 0;
   }
 </style>
@@ -41,6 +41,7 @@
       <button class="tab" data-target="p3">倍率計算</button>
       <button class="tab" data-target="p5">同角色歷史分析</button>
       <button class="tab" data-target="p6">World Link 分析</button>
+      <button class="tab" data-target="p7">當期排行榜</button>
     </div>
     <div id="p4" class="panel active">
       <iframe id="frame4" src="score_predict.html" title="分數線預測"></iframe>
@@ -59,6 +60,9 @@
     </div>
     <div id="p6" class="panel">
       <iframe id="frame6" src="wl_analysis.html" title="World Link 分析"></iframe>
+    </div>
+    <div id="p7" class="panel">
+      <iframe id="frame7" src="ranking.html" title="當期排行榜"></iframe>
     </div>
   </div>
 <script>
@@ -95,7 +99,7 @@
     fitFrame(document.getElementById('frame1'));
     fitFrame(document.getElementById('frame2'));
     fitFrame(document.getElementById('frame3'));
-    // frame4（分數線預測）、frame5（同角色歷史分析）、frame6（World Link 分析）改用子頁面主動回報高度（postMessage），這裡不要碰，
+    // frame4（分數線預測）、frame5（同角色歷史分析）、frame6（World Link 分析）、frame7（當期排行榜）改用子頁面主動回報高度（postMessage），這裡不要碰，
     // 避免同源時舊的偵測機制跟新機制互相搶著設定高度，導致高度一直跳動
   }
   window.addEventListener('load', ()=>{
@@ -109,10 +113,10 @@
   // 接收子頁面主動回報的高度（不受「載入後只調整3秒」的限制，資料晚到也能正確撐高）
   window.addEventListener('message', (e)=>{
     if(!e.data || e.data.type !== 'iframe-resize') return;
-    const frames = [document.getElementById('frame1'), document.getElementById('frame2'), document.getElementById('frame3'), document.getElementById('frame4'), document.getElementById('frame5'), document.getElementById('frame6')];
+    const frames = [document.getElementById('frame1'), document.getElementById('frame2'), document.getElementById('frame3'), document.getElementById('frame4'), document.getElementById('frame5'), document.getElementById('frame6'), document.getElementById('frame7')];
     frames.forEach(f=>{
       if(f && f.contentWindow === e.source){
-        const newHeight = (f.id === 'frame4' || f.id === 'frame5' || f.id === 'frame6')
+        const newHeight = (f.id === 'frame4' || f.id === 'frame5' || f.id === 'frame6' || f.id === 'frame7')
           ? (e.data.height + 20)
           : Math.max(e.data.height + 20, Math.max(window.innerHeight - 120, 0));
         const currentHeight = parseFloat(f.style.height) || 0;
