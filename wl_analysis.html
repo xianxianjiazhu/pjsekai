@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Link 分析</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap{max-width:960px;}
+  .section-block{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    margin-bottom:24px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .section-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .section-header h2{margin:0;font-size:17px;font-weight:700;}
+  .section-desc{color:var(--text-dim);font-size:13px;margin:4px 0 16px;}
+
+  .control-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:18px;
+  }
+  select{
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 12px;
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+  }
+  select:focus{outline:none;border-color:var(--cyan);}
+
+  .bar-list{display:flex;flex-direction:column;gap:10px;}
+  .bar-row{
+    display:grid;
+    grid-template-columns:110px 1fr;
+    align-items:center;
+    gap:10px;
+  }
+  .bar-label{
+    font-size:13px;
+    font-weight:700;
+    text-align:right;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    cursor:pointer;
+  }
+  .bar-label:hover{text-decoration:underline;}
+  .bar-track{
+    position:relative;
+    height:34px;
+    background:var(--bg-panel-2);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .bar-fill{
+    position:absolute;
+    top:0;left:0;bottom:0;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    padding-left:12px;
+    color:#fff;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    font-weight:700;
+    white-space:nowrap;
+    transition:width .3s ease;
+    text-shadow:0 1px 2px rgba(0,0,0,0.25);
+  }
+
+  .status-msg{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    color:var(--text-dim);
+    padding:30px;
+    text-align:center;
+  }
+
+  .timeline-panel{
+    margin-top:18px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    display:none;
+  }
+  .timeline-panel.active{display:block;}
+  .timeline-title{
+    font-weight:700;
+    color:var(--cyan);
+    margin-bottom:12px;
+    font-size:14px;
+  }
+
+  .freshness-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>World Link 分析</h1>
+  <div class="hint">
+    <ol style="margin:0;padding-left:20px;line-height:1.7;">
+      <li><strong>即時章節比較</strong>：只在目前活動是 World Link 時才有資料，比較各章節目前在選定名次的即時分數。</li>
+      <li><strong>歷史彙整</strong>：加總所有已匯入的過去 World Link 期數資料，比較各角色在選定名次的歷史總分；點角色名稱可以展開該角色跨期的分數趨勢。</li>
+    </ol>
+  </div>
+
+  <!-- 區塊1：即時章節比較 -->
+  <div class="section-block">
+    <div class="section-header">
+      <h2>📊 即時章節比較</h2>
+      <span class="freshness-tag" id="liveFreshness"></span>
+    </div>
+    <p class="section-desc">目前活動進行中的 World Link 章節，在選定名次的即時分數比較</p>
+    <div class="control-row">
+      <select id="liveRankSelect"></select>
+    </div>
+    <div id="liveChartWrap">
+      <div class="status-msg">載入中…</div>
+    </div>
+  </div>
+
+  <!-- 區塊2：歷史彙整 -->
+  <div class="section-block">
+    <div class="section-header">
+      <h2>📚 歷史彙整</h2>
+    </div>
+    <p class="section-desc">加總所有已匯入的過去 World Link 期數，各角色在選定名次的歷史總分排行</p>
+    <div class="control-row">
+      <select id="histRankSelect"></select>
+    </div>
+    <div id="histChartWrap">
+      <div class="status-msg">載入中…</div>
+    </div>
+    <div class="timeline-panel" id="timelinePanel">
+      <div class="timeline-title" id="timelineTitle"></div>
+      <div id="timelineChartWrap"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-note">資料來源：<a href="https://docs.hisekai.org/zh/docs" target="_blank" rel="noopener">Hi Sekai API</a>（即時）／Google Sheet（歷史彙整）</span>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
+
+const MILESTONE_RANKS = [10,20,30,40,50,100,200,300,400,500,1000,1500,2000,2500,3000,4000,5000,10000,20000,30000,50000,100000];
+
+const CHARACTER_MAP = {
+  1:'星乃一歌', 2:'天馬咲希', 3:'望月穗波', 4:'日野森志步', 5:'花里實乃理',
+  6:'桐谷遙', 7:'桃井愛莉', 8:'日野森雫', 9:'小豆澤心羽', 10:'白石杏',
+  11:'東雲彰人', 12:'青柳冬彌', 13:'天馬司', 14:'鳳笑夢', 15:'草薙寧寧',
+  16:'神代類', 17:'宵崎奏', 18:'朝比奈真冬', 19:'東雲繪名', 20:'曉山瑞希',
+  21:'初音未來', 22:'鏡音鈴', 23:'鏡音連', 24:'巡音流歌', 25:'MEIKO', 26:'KAITO',
+};
+
+// 角色專屬顏色（使用者提供）
+const CHARACTER_COLORS = {
+  '星乃一歌':'#3399FF', '天馬咲希':'#FFCC44', '望月穗波':'#EE6666', '日野森志步':'#BBDD22',
+  '花里實乃理':'#FF6699', '桐谷遙':'#9999FF', '桃井愛莉':'#FF9999', '日野森雫':'#66CC99',
+  '小豆澤心羽':'#CC6633', '白石杏':'#0099CC', '東雲彰人':'#FF6600', '青柳冬彌':'#003366',
+  '天馬司':'#FF9900', '鳳笑夢':'#FF66CC', '草薙寧寧':'#33CC99', '神代類':'#9966CC',
+  '宵崎奏':'#BB22CC', '朝比奈真冬':'#8888CC', '東雲繪名':'#CC9966', '曉山瑞希':'#EE88BB',
+  '初音未來':'#33CCBB', '鏡音鈴':'#FFEE11', '鏡音連':'#FFCC00', '巡音流歌':'#FFBBCC',
+  'MEIKO':'#DD4444', 'KAITO':'#3366CC',
+};
+function colorFor(name){ return CHARACTER_COLORS[name] || '#4f46e5'; }
+
+function fmtNum(n){ return Math.round(n).toLocaleString('zh-TW'); }
+
+function populateRankSelect(selectEl, defaultRank){
+  selectEl.innerHTML = '';
+  MILESTONE_RANKS.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = `T${r}`;
+    if(r === defaultRank) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function relTime(date){
+  if(!date) return '—';
+  const sec = Math.floor((new Date() - date)/1000);
+  if(sec < 60) return `${sec}秒前`;
+  const min = Math.floor(sec/60);
+  return `${min}分鐘前`;
+}
+
+// ========== 區塊1：即時章節比較 ==========
+let liveChapters = []; // [{name, rank, score}]
+let lastLiveFetch = null;
+
+async function fetchWithTimeout(url, timeoutMs = 8000){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { cache: 'no-store', signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function loadLiveComparison(){
+  const rank = Number(document.getElementById('liveRankSelect').value);
+  const wrap = document.getElementById('liveChartWrap');
+
+  try{
+    const [topRes, borderRes] = await Promise.all([
+      fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=top100`),
+      fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`),
+    ]);
+    const topData = await topRes.json();
+    const borderData = await borderRes.json();
+
+    const wlTop = topData.world_link_top_100_rankings || [];
+    const wlBorder = borderData.world_link_border_rankings || [];
+
+    if(!wlTop.length && !wlBorder.length){
+      wrap.innerHTML = `<div class="status-msg">目前沒有 World Link 活動進行中</div>`;
+      document.getElementById('liveFreshness').textContent = '';
+      return;
+    }
+
+    const chapterMap = {};
+    wlTop.forEach(ch => {
+      chapterMap[ch.chapter] = chapterMap[ch.chapter] || { character: ch.character };
+      const p = (ch.player_rankings || []).find(x => x.rank === rank);
+      if(p) chapterMap[ch.chapter].score = p.score;
+    });
+    wlBorder.forEach(ch => {
+      chapterMap[ch.chapter] = chapterMap[ch.chapter] || { character: ch.character };
+      const p = (ch.player_borders || []).find(x => x.rank === rank);
+      if(p) chapterMap[ch.chapter].score = p.score;
+    });
+
+    const rows = Object.values(chapterMap)
+      .filter(ch => ch.score !== undefined)
+      .map(ch => ({ name: CHARACTER_MAP[ch.character] || `角色${ch.character}`, score: ch.score }))
+      .sort((a,b) => b.score - a.score);
+
+    lastLiveFetch = new Date();
+    document.getElementById('liveFreshness').textContent = `更新於 ${relTime(lastLiveFetch)}`;
+
+    if(!rows.length){
+      wrap.innerHTML = `<div class="status-msg">這個名次目前沒有資料（可能太後面，尚未有玩家達到）</div>`;
+      return;
+    }
+
+    renderBarChart(wrap, rows);
+  }catch(err){
+    console.warn('即時章節比較載入失敗', err);
+    wrap.innerHTML = `<div class="status-msg">載入失敗，請稍後再試</div>`;
+  }
+}
+
+function renderBarChart(wrap, rows){
+  const maxScore = Math.max(...rows.map(r => r.score));
+  wrap.innerHTML = `<div class="bar-list">${rows.map(r => {
+    const pct = maxScore > 0 ? Math.max(4, Math.round((r.score / maxScore) * 100)) : 0;
+    const color = colorFor(r.name);
+    return `
+      <div class="bar-row">
+        <div class="bar-label" style="color:${color};" data-character="${r.name}">${r.name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${color};">${fmtNum(r.score)}</div>
+        </div>
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
+document.getElementById('liveRankSelect').addEventListener('change', loadLiveComparison);
+
+// ========== 區塊2：歷史彙整 ==========
+async function loadHistoricalAggregate(){
+  const rank = Number(document.getElementById('histRankSelect').value);
+  const wrap = document.getElementById('histChartWrap');
+  wrap.innerHTML = `<div class="status-msg">載入中…</div>`;
+  document.getElementById('timelinePanel').classList.remove('active');
+
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=wl_aggregate_by_rank&rank=${rank}`);
+    const result = await res.json();
+    if(result.error || !result.data || !result.data.length){
+      wrap.innerHTML = `<div class="status-msg">這個名次目前沒有歷史資料</div>`;
+      return;
+    }
+    const rows = result.data
+      .map(d => ({ name: d.character, score: d.totalScore, sampleCount: d.sampleCount }))
+      .sort((a,b) => b.score - a.score);
+
+    const maxScore = Math.max(...rows.map(r => r.score));
+    wrap.innerHTML = `<div class="bar-list">${rows.map(r => {
+      const pct = maxScore > 0 ? Math.max(4, Math.round((r.score / maxScore) * 100)) : 0;
+      const color = colorFor(r.name);
+      return `
+        <div class="bar-row">
+          <div class="bar-label" style="color:${color};" data-character="${r.name}" data-rank="${rank}">${r.name} ›</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%;background:${color};">${fmtNum(r.score)}　<span style="opacity:.75;font-weight:400;">(共${r.sampleCount}期)</span></div>
+          </div>
+        </div>
+      `;
+    }).join('')}</div>`;
+
+    wrap.querySelectorAll('.bar-label').forEach(el => {
+      el.addEventListener('click', () => {
+        loadCharacterTimeline(el.dataset.character, Number(el.dataset.rank));
+      });
+    });
+  }catch(err){
+    console.warn('歷史彙整載入失敗', err);
+    wrap.innerHTML = `<div class="status-msg">載入失敗，請稍後再試</div>`;
+  }
+}
+
+async function loadCharacterTimeline(character, rank){
+  const panel = document.getElementById('timelinePanel');
+  const titleEl = document.getElementById('timelineTitle');
+  const chartWrap = document.getElementById('timelineChartWrap');
+
+  panel.classList.add('active');
+  titleEl.textContent = `${character}｜T${rank} 跨期分數趨勢`;
+  chartWrap.innerHTML = `<div class="status-msg">載入中…</div>`;
+
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=wl_character_timeline&character=${encodeURIComponent(character)}&rank=${rank}`);
+    const result = await res.json();
+    if(result.error || !result.points || !result.points.length){
+      chartWrap.innerHTML = `<div class="status-msg">沒有足夠資料畫圖</div>`;
+      return;
+    }
+    chartWrap.innerHTML = buildLineChartSvg(result.points, colorFor(character));
+  }catch(err){
+    console.warn('角色趨勢載入失敗', err);
+    chartWrap.innerHTML = `<div class="status-msg">載入失敗</div>`;
+  }
+}
+
+function buildLineChartSvg(points, color){
+  const w = 600, h = 220, pad = 44;
+  const scores = points.map(p => p.score);
+  const min = Math.min(...scores), max = Math.max(...scores);
+  const range = max - min || 1;
+  const stepX = points.length > 1 ? (w - pad*2) / (points.length - 1) : 0;
+
+  const coords = points.map((p, i) => {
+    const x = pad + i * stepX;
+    const y = h - pad - ((p.score - min) / range) * (h - pad*2);
+    return { x, y, p };
+  });
+
+  const linePath = coords.map((c,i) => `${i===0?'M':'L'}${c.x},${c.y}`).join(' ');
+  const dots = coords.map(c => `
+    <circle cx="${c.x}" cy="${c.y}" r="4" fill="${color}"/>
+    <text x="${c.x}" y="${c.y - 10}" font-size="10" fill="#1f2430" text-anchor="middle" font-family="monospace">${fmtNum(c.p.score)}</text>
+    <text x="${c.x}" y="${h - pad + 18}" font-size="10" fill="#6b7280" text-anchor="middle" font-family="monospace">${c.p.eventId}期</text>
+  `).join('');
+
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;display:block;margin:0 auto;">
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${dots}
+  </svg>`;
+}
+
+document.getElementById('histRankSelect').addEventListener('change', loadHistoricalAggregate);
+
+// ========== 初始化 ==========
+populateRankSelect(document.getElementById('liveRankSelect'), 10);
+populateRankSelect(document.getElementById('histRankSelect'), 10);
+
+loadLiveComparison();
+loadHistoricalAggregate();
+setInterval(loadLiveComparison, 60000);
+
+// ========== 主動回報頁面高度給外層 index.html ==========
+let lastReportedHeight = 0;
+function reportHeightToParent(){
+  if(window.parent === window) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const h = document.documentElement.scrollHeight;
+      if(Math.abs(h - lastReportedHeight) < 2) return;
+      lastReportedHeight = h;
+      window.parent.postMessage({ type: 'iframe-resize', height: h }, '*');
+    });
+  });
+}
+window.addEventListener('load', reportHeightToParent);
+if(window.ResizeObserver){
+  new ResizeObserver(reportHeightToParent).observe(document.body);
+}
+</script>
+</body>
+</html>
