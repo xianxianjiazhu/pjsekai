@@ -8,18 +8,6 @@
 <style>
   .wrap{max-width:960px;}
   .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
-  .source-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
-  .source-tab{
-    border:1px solid var(--line);
-    background:var(--bg-panel);
-    padding:9px 16px;
-    border-radius:10px;
-    cursor:pointer;
-    font-weight:600;
-    font-size:13px;
-    color:var(--text-dim);
-  }
-  .source-tab.active{background:var(--cyan);color:#fff;border-color:transparent;}
   .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
   select{
     background:var(--bg-panel-2);
@@ -144,18 +132,13 @@
   <h1>同角色歷史分析</h1>
   <div class="hint">
     <ol style="margin:0;padding-left:20px;line-height:1.7;">
-      <li><strong>中位數</strong>是該角色主打過的所有一般活動（排除 World Link 與標記異常的期數），在對應名次的最終分數中位數，是預測分數線的歷史基準。</li>
+      <li><strong>中位數</strong>是該角色主打過的所有一般活動（排除標記異常的期數），在對應名次的最終分數中位數，是預測分數線的歷史基準。</li>
       <li><strong>變異係數%</strong>越高，代表這個角色的歷史表現越不穩定，中位數的參考價值相對較低。</li>
       <li><strong>趨勢%</strong>是「最近3期中位數」相對於「全部歷史中位數」的差異，正值代表角色近期表現比歷史平均更強（可能是人氣持續上升），負值代表近期比歷史平均弱。</li>
       <li>點角色名稱可以進一步用「次要角色」篩選重新計算中位數，看搭配特定角色時分數有沒有明顯不同（樣本數少時參考價值較低，請留意樣本數）。</li>
       <li>進入角色詳細畫面後，點下方表格裡的<strong>名次</strong>（例如「T10 ›」），可以在上方展開該名次跨期數的分數趨勢折線圖。</li>
       <li>下方名次分組預設是收合的，點標題可以展開查看該區間的詳細資料。</li>
     </ol>
-  </div>
-
-  <div class="source-tabs">
-    <button class="source-tab active" data-source="marathon">一般活動（Marathon）</button>
-    <button class="source-tab" data-source="worldLink">World Link 章節</button>
   </div>
 
   <!-- 總覽模式 -->
@@ -247,8 +230,7 @@ const RANK_GROUPS = [
   { key: 'mass',   label: 'T10000+（大眾排位）',     ranks: [10000,20000,30000,50000,100000] },
 ];
 
-let allDataBySource = { marathon: [], worldLink: [] };
-let activeSource = 'marathon';
+let marathonData = [];
 let currentDetailCharacter = null;
 let expandedGroups = new Set();
 
@@ -326,7 +308,7 @@ function buildRowsHtml(rows){
 }
 
 function renderTable(){
-  const data = allDataBySource[activeSource] || [];
+  const data = marathonData;
   const unitSel = document.getElementById('unitFilter').value;
   const charSel = document.getElementById('charFilter').value;
   const sortBy = document.getElementById('sortBy').value;
@@ -421,11 +403,11 @@ async function loadData(){
       return;
     }
 
-    allDataBySource = { marathon: result.marathon || [], worldLink: result.worldLink || [] };
-    populateFilters(allDataBySource[activeSource]);
+    marathonData = result.marathon || [];
+    populateFilters(marathonData);
     renderTable();
     document.getElementById('dataNote').textContent =
-      `一般活動 ${allDataBySource.marathon.length} 筆・World Link 章節 ${allDataBySource.worldLink.length} 筆`;
+      `一般活動 ${marathonData.length} 筆`;
   }catch(err){
     console.error('載入分析資料失敗', err);
     wrap.innerHTML = `<div class="table-panel"><div class="status-msg">載入失敗，請稍後點「重新整理」再試一次。</div></div>`;
@@ -590,17 +572,6 @@ document.getElementById('colToggleBtn').addEventListener('click', () => {
   isCompact = !isCompact;
   applyCompactToAllTables();
   reportHeightToParent();
-});
-
-document.querySelectorAll('.source-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.source-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeSource = btn.dataset.source;
-    closeDetail();
-    populateFilters(allDataBySource[activeSource]);
-    renderTable();
-  });
 });
 
 document.getElementById('unitFilter').addEventListener('change', renderTable);
