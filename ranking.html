@@ -19,6 +19,25 @@
   .wl-tab.overall-tab{color:var(--cyan);}
   .wl-tab.overall-tab.active{background:var(--cyan);color:#ffffff;}
 
+  .range-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+  .range-tab{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--bg-panel);
+    color:var(--text-dim);
+    cursor:pointer;
+    transition:.15s;
+    white-space:nowrap;
+  }
+  .range-tab:hover{border-color:var(--cyan);color:var(--cyan);}
+  .range-tab.active{background:var(--cyan);border-color:var(--cyan);color:#ffffff;}
+  .range-tab.border-tab{color:var(--pink);border-color:rgba(219,39,119,0.3);}
+  .range-tab.border-tab.active{background:var(--pink);border-color:var(--pink);color:#ffffff;}
+
   .list{display:flex;flex-direction:column;gap:8px;}
   .row-card{
     background:var(--bg-panel);
@@ -38,11 +57,12 @@
   .row-rank{
     font-family:'JetBrains Mono',monospace;
     font-weight:700;
-    font-size:15px;
+    font-size:14px;
     color:var(--text-dim);
-    width:34px;
+    min-width:34px;
     flex:0 0 auto;
     text-align:center;
+    white-space:nowrap;
   }
   .row-rank.r1{color:#d4af37;}
   .row-rank.r2{color:#9ca3af;}
@@ -96,6 +116,7 @@
 <body>
 <div class="wrap">
   <h1>當期排行榜</h1>
+  <img id="eventBanner" src="" alt="活動橫幅" style="max-width:100%;width:auto;max-height:208px;display:none;margin:8px auto 14px;border-radius:14px;border:1px solid var(--line);">
   <p class="event-name" id="eventName">載入中…</p>
 
   <div class="top-row">
@@ -104,6 +125,8 @@
   </div>
 
   <div class="wl-tabs" id="wlTabs"></div>
+
+  <div class="range-tabs" id="rangeTabs"></div>
 
   <div id="listWrap">
     <div class="status-msg">載入中…</div>
@@ -125,11 +148,23 @@ const CHARACTER_MAP = {
   21:'初音未來', 22:'鏡音鈴', 23:'鏡音連', 24:'巡音流歌', 25:'MEIKO', 26:'KAITO',
 };
 
-let overallPlayers = [];  // 總榜（含 marathon 或 WL 總榜）
-let wlChapterPlayers = {}; // { characterId: [player, ...] }
-let wlChapterOrder = [];   // [characterId, ...] 依章節順序
+const RANGE_TABS = [
+  { key: 'r1', label: '1-20', min: 1, max: 20 },
+  { key: 'r2', label: '21-40', min: 21, max: 40 },
+  { key: 'r3', label: '41-60', min: 41, max: 60 },
+  { key: 'r4', label: '61-80', min: 61, max: 80 },
+  { key: 'r5', label: '81-100', min: 81, max: 100 },
+  { key: 'border', label: '精彩片段', min: null, max: null },
+];
+
+let overallPlayers = [];        // 總榜前100（含 marathon 或 WL 總榜）
+let overallBorderPlayers = [];  // 總榜精彩片段（T200~T100000里程碑）
+let wlChapterPlayers = {};      // { characterId: [player, ...] } 章節前100
+let wlChapterBorderPlayers = {};// { characterId: [player, ...] } 章節精彩片段
+let wlChapterOrder = [];        // [characterId, ...] 依章節順序
 let isWorldLinkEvent = false;
 let activeTab = 'overall';
+let activeRangeTab = 'r1';
 let lastFetch = null;
 
 function fmtNum(n){
@@ -147,6 +182,22 @@ function relTime(dateStr){
   const hr = Math.floor(min / 60);
   if(hr < 48) return `${hr}小時前`;
   return `${Math.floor(hr / 24)}天前`;
+}
+
+function setEventBanner(eventId){
+  const bannerImg = document.getElementById('eventBanner');
+  const specificSrc = `assest/event_banner_${eventId}.jpg`;
+  const fallbackSrc = 'assest/event_banner.jpg';
+  bannerImg.onload = function(){ bannerImg.style.display = 'block'; reportHeightToParent(); };
+  bannerImg.onerror = function(){
+    if(bannerImg.src.includes(`event_banner_${eventId}.jpg`)){
+      bannerImg.onerror = function(){ bannerImg.style.display = 'none'; };
+      bannerImg.src = fallbackSrc;
+    }else{
+      bannerImg.style.display = 'none';
+    }
+  };
+  bannerImg.src = specificSrc;
 }
 
 async function fetchWithTimeout(url, timeoutMs = 8000){
@@ -172,12 +223,28 @@ function statBlock(title, stats){
   `;
 }
 
+function getPoolTopPlayers(){
+  return activeTab === 'overall' ? overallPlayers : (wlChapterPlayers[activeTab] || []);
+}
+
+function getPoolBorderPlayers(){
+  return activeTab === 'overall' ? overallBorderPlayers : (wlChapterBorderPlayers[activeTab] || []);
+}
+
 function renderList(){
   const wrap = document.getElementById('listWrap');
-  const players = activeTab === 'overall' ? overallPlayers : (wlChapterPlayers[activeTab] || []);
+
+  let players;
+  if(activeRangeTab === 'border'){
+    players = getPoolBorderPlayers();
+  }else{
+    const range = RANGE_TABS.find(r => r.key === activeRangeTab);
+    players = getPoolTopPlayers().filter(p => p.rank >= range.min && p.rank <= range.max);
+  }
 
   if(!players.length){
-    wrap.innerHTML = `<div class="status-msg">目前沒有排行資料</div>`;
+    const msg = activeRangeTab === 'border' ? '這個分頁目前沒有精彩片段資料' : '這個名次區間目前沒有資料';
+    wrap.innerHTML = `<div class="status-msg">${msg}</div>`;
     reportHeightToParent();
     return;
   }
@@ -258,10 +325,32 @@ function switchTab(key){
   renderList();
 }
 
+function buildRangeTabs(){
+  const wrap = document.getElementById('rangeTabs');
+  wrap.innerHTML = '';
+  RANGE_TABS.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'range-tab' + (r.key === 'border' ? ' border-tab' : '') + (activeRangeTab === r.key ? ' active' : '');
+    btn.textContent = r.label;
+    btn.onclick = () => switchRangeTab(r.key);
+    wrap.appendChild(btn);
+  });
+}
+
+function switchRangeTab(key){
+  activeRangeTab = key;
+  buildRangeTabs();
+  renderList();
+}
+
 async function loadRanking(){
   try{
-    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=top100`);
-    const data = await res.json();
+    const [topRes, borderRes] = await Promise.all([
+      fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=top100`),
+      fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=proxy&target=border`),
+    ]);
+    const data = await topRes.json();
+    const borderData = await borderRes.json();
 
     if(data.error){
       document.getElementById('listWrap').innerHTML = `<div class="status-msg">載入失敗：${data.message || data.error}</div>`;
@@ -269,13 +358,20 @@ async function loadRanking(){
     }
 
     document.getElementById('eventName').textContent = data.id ? `第 ${data.id} 期・${data.name || ''}` : (data.name || '目前沒有活動進行中');
+    if(data.id) setEventBanner(data.id);
 
     overallPlayers = data.player_top_100_rankings || [];
+    // 總榜精彩片段：top100端點如果本來就有帶就直接用，沒有的話用 border 端點的回應補上
+    overallBorderPlayers = (Array.isArray(data.player_border_rankings) && data.player_border_rankings.length)
+      ? data.player_border_rankings
+      : (Array.isArray(borderData.player_border_rankings) ? borderData.player_border_rankings : []);
 
     const wlTopChapters = data.world_link_top_100_rankings || [];
+    const wlBorderChapters = borderData.world_link_border_rankings || [];
     isWorldLinkEvent = wlTopChapters.length > 0;
 
     wlChapterPlayers = {};
+    wlChapterBorderPlayers = {};
     wlChapterOrder = [];
     if(isWorldLinkEvent){
       wlTopChapters
@@ -285,6 +381,9 @@ async function loadRanking(){
           wlChapterPlayers[String(ch.character)] = ch.player_rankings || [];
           wlChapterOrder.push(ch.character);
         });
+      wlBorderChapters.forEach(ch => {
+        wlChapterBorderPlayers[String(ch.character)] = ch.player_borders || [];
+      });
       if(activeTab !== 'overall' && !wlChapterPlayers[activeTab]){
         activeTab = 'overall';
       }
@@ -296,6 +395,7 @@ async function loadRanking(){
     document.getElementById('freshness').textContent = `更新於 ${relTime(lastFetch.toISOString())}`;
 
     buildWlTabs();
+    buildRangeTabs();
     renderList();
   }catch(err){
     console.warn('排行榜載入失敗', err);
