@@ -659,6 +659,7 @@ async function loadLive(){
         CHECKPOINT_DATE = new Date(data.aggregate_at);
         renderCheckpointStr();
       }
+      currentChapterPlayersRaw = [];
       renderAll(ranks, true);
     }else{
       const chapter = wlChapters.find(c => String(c.id) === activeWlTab);
@@ -667,6 +668,7 @@ async function loadLive(){
           CHECKPOINT_DATE = new Date(chapter.aggregateAt);
           renderCheckpointStr();
         }
+        currentChapterPlayersRaw = chapter.playersRaw || [];
         renderAll(chapter.ranks, true);
       }else{
         activeWlTab = 'overall';
@@ -674,6 +676,7 @@ async function loadLive(){
           CHECKPOINT_DATE = new Date(data.aggregate_at);
           renderCheckpointStr();
         }
+        currentChapterPlayersRaw = [];
         renderAll(ranks, true);
       }
     }
@@ -705,12 +708,14 @@ const CHARACTER_MAP = {
 let wlOverallRanks = [];
 let wlChapters = [];
 let activeWlTab = 'overall';
+let currentChapterPlayersRaw = []; // ★新增：目前所在章節分頁的完整玩家清單，隨分頁切換更新
 
 function buildChapterRanks(chapter, hoursSinceStart){
   const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
   const top = (chapter.rankings || [])
     .filter(p => wantedTop.includes(p.rank))
     .map(p => ({
+      ...p,
       rank: p.rank, score: p.score,
       speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
       isAverage: !!hoursSinceStart,
@@ -782,6 +787,7 @@ async function setupWorldLink(data, wlBorderRankings){
         id: ch.character,
         name: CHARACTER_MAP[ch.character] || `角色${ch.character}`,
         ranks: overriddenRanks,
+        playersRaw: ch.rankings || [], // ★新增：該章節T1~T100的完整原始玩家清單
         aggregateAt: ch.aggregateAt || null,
         startAt: ch.startAt || null,
         closedAt: ch.closedAt || null,
@@ -816,6 +822,7 @@ function switchWlTab(key){
       CHECKPOINT_DATE = new Date(liveData.aggregate_at);
       renderCheckpointStr();
     }
+    currentChapterPlayersRaw = []; // ★新增：回到總榜，清空章節玩家清單
     renderAll(wlOverallRanks, true);
   }else{
     const chapter = wlChapters.find(c => String(c.id) === key);
@@ -824,6 +831,7 @@ function switchWlTab(key){
       CHECKPOINT_DATE = new Date(chapter.aggregateAt);
       renderCheckpointStr();
     }
+    currentChapterPlayersRaw = chapter.playersRaw || []; // ★新增：切到這個章節，同步玩家清單
     renderAll(chapter.ranks, true);
     charStats = null;
     document.getElementById('charStatsNote').style.display = 'none';
@@ -1243,7 +1251,11 @@ function lookupRank(){
       ? `<span class="dim" style="font-size:11px;">（近${entry.recentWindowHours >= 20 ? '24' : Math.round(entry.recentWindowHours)}h實測時速）</span>${confidenceNote}`
       : (entry.isAverage ? `<span class="dim" style="font-size:11px;">（均速估算）</span>${confidenceNote}` : '');
 
-  const fullPlayer = rank <= 100 ? fullTop100PlayersRaw.find(p => p.rank === rank) : null;
+  const fullPlayer = rank <= 100
+  ? (activeWlTab === 'overall'
+      ? fullTop100PlayersRaw.find(p => p.rank === rank)
+      : currentChapterPlayersRaw.find(p => p.rank === rank))
+  : null;
 
   let html = '';
   if(fullPlayer){
