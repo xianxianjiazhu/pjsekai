@@ -240,7 +240,7 @@
         console.assert(zeroCase.total.toFixed(4) === "1.0000", "全 0 案例倍率應為 1.0000");
         console.assert(zeroCase.effectiveValue.toFixed(2) === "0.00", "全 0 案例實效值應為 0.00%");
 
-        const mixedCase = calculateFromPercents(150, [100, 80, 120, 50]);
+        const mixedCase = calculateFromPercents(140, [100, 80, 120, 50]);
         console.assert(mixedCase.total.toFixed(4) === "3.1000", "混合案例倍率應為 3.1000");
         console.assert(mixedCase.effectiveValue.toFixed(2) === "210.00", "混合案例實效值應為 210.00%");
       }
