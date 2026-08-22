@@ -119,7 +119,7 @@
   <div class="hint">
     <ol style="margin:0;padding-left:20px;line-height:1.7;">
       <li><strong>即時章節比較</strong>：只在目前活動是 World Link 時才有資料，比較各章節目前在選定名次的即時分數。</li>
-      <li><strong>歷史彙整</strong>：加總所有已匯入的過去 World Link 期數資料，比較各角色在選定名次的歷史總分；點角色名稱可以展開該角色跨期的分數趨勢。</li>
+      <li><strong>歷史彙整</strong>：依「第一年」「第二年」分別加總 World Link 期數資料，比較各角色在選定名次的歷史總分（不同年份機制/玩家生態差異較大，分開比較才公平）；點角色名稱可以展開該角色跨期的分數趨勢。</li>
     </ol>
   </div>
 
@@ -143,9 +143,10 @@
     <div class="section-header">
       <h2>📚 歷史彙整</h2>
     </div>
-    <p class="section-desc">加總所有已匯入的過去 World Link 期數，各角色在選定名次的歷史總分排行</p>
+    <p class="section-desc">依年份分組加總 World Link 期數，各角色在選定名次的歷史總分排行</p>
     <div class="control-row">
       <select id="histRankSelect"></select>
+      <select id="histEventSelect"></select>
     </div>
     <div id="histChartWrap">
       <div class="status-msg">載入中…</div>
@@ -293,14 +294,50 @@ function renderBarChart(wrap, rows){
 document.getElementById('liveRankSelect').addEventListener('change', loadLiveComparison);
 
 // ========== 區塊2：歷史彙整 ==========
+async function populateEventSelect(){
+  const selectEl = document.getElementById('histEventSelect');
+  selectEl.innerHTML = '';
+  try{
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=wl_event_list`);
+    const result = await res.json();
+    const events = result.events || [];
+
+    const year1Count = events.filter(ev => ev.year === 1).length;
+    const year2Count = events.filter(ev => ev.year === 2).length;
+
+    // 只分兩個年份分組，不列個別期數、也不提供「全部期數加總」——
+    // 不同年份的WL活動機制/玩家生態差異較大，混在一起比較意義不大
+    if(year2Count > 0){
+      const opt2 = document.createElement('option');
+      opt2.value = '2';
+      opt2.textContent = `第二年 World Link（共${year2Count}期）`;
+      selectEl.appendChild(opt2);
+    }
+    if(year1Count > 0){
+      const opt1 = document.createElement('option');
+      opt1.value = '1';
+      opt1.textContent = `第一年 World Link（共${year1Count}期）`;
+      selectEl.appendChild(opt1);
+    }
+  }catch(err){
+    console.warn('期數清單載入失敗', err);
+  }
+}
+
 async function loadHistoricalAggregate(){
   const rank = Number(document.getElementById('histRankSelect').value);
+  const yearGroup = document.getElementById('histEventSelect').value;
   const wrap = document.getElementById('histChartWrap');
   wrap.innerHTML = `<div class="status-msg">載入中…</div>`;
   document.getElementById('timelinePanel').classList.remove('active');
 
+  if(!yearGroup){
+    wrap.innerHTML = `<div class="status-msg">目前沒有已匯入的 World Link 歷史資料</div>`;
+    return;
+  }
+
   try{
-    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=wl_aggregate_by_rank&rank=${rank}`);
+    const res = await fetchWithTimeout(`${APPS_SCRIPT_URL}?mode=wl_aggregate_by_rank&rank=${rank}&yearGroup=${yearGroup}`);
     const result = await res.json();
     if(result.error || !result.data || !result.data.length){
       wrap.innerHTML = `<div class="status-msg">這個名次目前沒有歷史資料</div>`;
@@ -385,13 +422,16 @@ function buildLineChartSvg(points, color){
 }
 
 document.getElementById('histRankSelect').addEventListener('change', loadHistoricalAggregate);
+document.getElementById('histEventSelect').addEventListener('change', loadHistoricalAggregate);
 
 // ========== 初始化 ==========
 populateRankSelect(document.getElementById('liveRankSelect'), 10);
 populateRankSelect(document.getElementById('histRankSelect'), 10);
 
 loadLiveComparison();
-loadHistoricalAggregate();
+// populateEventSelect() 要先把年份分組選項載入完成，loadHistoricalAggregate() 才讀得到正確的下拉選單值，
+// 不然會在選項還沒填進去前就先執行一次，誤判成「沒有資料」
+populateEventSelect().then(loadHistoricalAggregate);
 setInterval(loadLiveComparison, 60000);
 
 // ========== 主動回報頁面高度給外層 index.html ==========
