@@ -192,14 +192,6 @@
     </div>
   </div>
 
-  <div class="section-title"><span class="num">04</span><h2>當期排行榜</h2></div>
-  <div class="calc-panel" style="padding:18px 18px 22px;">
-    <p class="result-note" style="margin-top:0;margin-bottom:14px;" id="lbScopeHint"></p>
-    <div class="lb-segment" id="lbSegment"></div>
-    <div id="lbListWrap"><div class="table-panel" style="padding:24px;text-align:center;"><span class="dim">載入排行榜資料中…</span></div></div>
-    <p class="result-note" style="margin-top:12px;margin-bottom:0;">點名次可以展開該玩家過去 1h／3h／24h 的次數、得分、時速、平均分（僅前 100 名有這些細節資料，資料來自第三方 API 原始數值，偶爾可能出現異常）。</p>
-  </div>
-
   <footer>
     <div class="top-row">
       <span>資料來源：<a href="https://docs.hisekai.org/zh/docs" target="_blank" rel="noopener">Hi Sekai API</a>（非官方，社群維護）</span>
@@ -407,7 +399,6 @@ function renderAll(ranks, isLive){
   updateFreshnessDisplay();
   updateLookupScopeHint();
   updateWLOverallNote();
-  renderLeaderboard();
   const pill = document.getElementById('statusPill');
   if(isLive){
     pill.textContent = '● 即時資料';
@@ -848,9 +839,6 @@ async function setupWorldLink(data, wlBorderRankings){
 
 function switchWlTab(key){
   activeWlTab = key;
-  activeLbSegment = 'seg1';
-  expandedLbRanks.clear();
-  renderLbSegmentButtons();
   document.querySelectorAll('.wl-tab').forEach(btn=>{
     const isOverall = btn.classList.contains('overall-tab');
     btn.classList.toggle('active', (isOverall && key === 'overall') || (!isOverall && btn.textContent === (CHARACTER_MAP[key] || '')));
@@ -1349,102 +1337,6 @@ function statBlock(title, stats){
     </div>
   `;
 }
-
-// ========== 04. 當期排行榜 ==========
-const LB_SEGMENTS = [
-  { key: 'seg1', label: '1-20',   start: 1,  end: 20  },
-  { key: 'seg2', label: '21-40',  start: 21, end: 40  },
-  { key: 'seg3', label: '41-60',  start: 41, end: 60  },
-  { key: 'seg4', label: '61-80',  start: 61, end: 80  },
-  { key: 'seg5', label: '81-100', start: 81, end: 100 },
-];
-let activeLbSegment = 'seg1';
-let expandedLbRanks = new Set();
-
-function getLeaderboardPlayers(){
-  return activeWlTab === 'overall' ? fullTop100PlayersRaw : currentChapterPlayersRaw;
-}
-
-function updateLbScopeHint(){
-  const hintEl = document.getElementById('lbScopeHint');
-  if(!hintEl) return;
-  if(wlChapters.length === 0){ hintEl.textContent = ''; return; }
-  const scopeLabel = activeWlTab === 'overall' ? '總榜' : ((wlChapters.find(c => String(c.id) === activeWlTab) || {}).name || '章節') + ' 章節榜';
-  hintEl.textContent = `📌 目前顯示範圍：${scopeLabel}（跟著上方選擇的分頁切換）`;
-}
-
-function renderLbSegmentButtons(){
-  const wrap = document.getElementById('lbSegment');
-  if(!wrap) return;
-  wrap.innerHTML = LB_SEGMENTS.map(seg =>
-    `<button class="lb-seg-btn${seg.key === activeLbSegment ? ' active' : ''}" data-seg="${seg.key}">${seg.label}</button>`
-  ).join('');
-  wrap.querySelectorAll('.lb-seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeLbSegment = btn.dataset.seg;
-      renderLbSegmentButtons();
-      renderLeaderboard();
-    });
-  });
-}
-
-function renderLeaderboard(){
-  const wrap = document.getElementById('lbListWrap');
-  if(!wrap) return;
-  updateLbScopeHint();
-
-  const players = getLeaderboardPlayers();
-  if(!players || !players.length){
-    wrap.innerHTML = `<div class="table-panel" style="padding:24px;text-align:center;" ><span class="dim">目前沒有排行榜資料可顯示</span></div>`;
-    return;
-  }
-
-  const seg = LB_SEGMENTS.find(s => s.key === activeLbSegment) || LB_SEGMENTS[0];
-  const rows = players.filter(p => p.rank >= seg.start && p.rank <= seg.end).sort((a,b) => a.rank - b.rank);
-
-  if(!rows.length){
-    wrap.innerHTML = `<div class="table-panel" style="padding:24px;text-align:center;"><span class="dim">這個區間目前沒有資料</span></div>`;
-    return;
-  }
-
-  wrap.innerHTML = `<div class="table-panel" style="padding:4px 0;">${rows.map(p => {
-    const isExpanded = expandedLbRanks.has(p.rank);
-    const hasStats = !!(p.last_1h_stats || p.last_3h_stats || p.last_24h_stats);
-    return `
-      <div class="lb-row${isExpanded ? ' expanded' : ''}" data-rank="${p.rank}">
-        <div class="lb-row-header">
-          <span class="lb-rank">#${p.rank}</span>
-          <span class="lb-name">${p.name || '（無暱稱）'}</span>
-          <span class="lb-score mono">${fmtNum(p.score)}</span>
-          <span class="lb-arrow">${isExpanded ? '▲' : '▼'}</span>
-        </div>
-        ${isExpanded ? `
-          <div class="lb-row-detail">
-            ${hasStats ? `
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-                ${statBlock('過去 1 小時', p.last_1h_stats)}
-                ${statBlock('過去 3 小時', p.last_3h_stats)}
-                ${statBlock('過去 24 小時', p.last_24h_stats)}
-              </div>
-            ` : `<p class="result-note" style="margin:0;">這個名次沒有詳細時速資料</p>`}
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('')}</div>`;
-
-  wrap.querySelectorAll('.lb-row-header').forEach(header => {
-    header.addEventListener('click', () => {
-      const row = header.closest('.lb-row');
-      const rank = Number(row.dataset.rank);
-      if(expandedLbRanks.has(rank)) expandedLbRanks.delete(rank);
-      else expandedLbRanks.add(rank);
-      renderLeaderboard();
-    });
-  });
-}
-
-renderLbSegmentButtons();
 
 const LAST_ID_KEY = 'pjsk_last_lookup_id';
 
