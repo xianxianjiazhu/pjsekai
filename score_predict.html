@@ -738,10 +738,7 @@ let activeWlTab = 'overall';
 let currentChapterPlayersRaw = []; // ★新增：目前所在章節分頁的完整玩家清單，隨分頁切換更新
 
 function buildChapterRanks(chapter, hoursSinceStart){
-  // 章節玩家池比總榜小很多，剛開放時很可能連T10都還沒有人達到——額外加上第1名當作保底，
-  // 只要有任何一人玩過這個章節，至少有東西可以顯示/生成分享圖片，不會整個開天窗。
-  // 這裡刻意不動全域的 MILESTONE_RANKS，避免牽動到總榜跟其他地方的顯示與資料比對邏輯。
-  const wantedTop = [1, ...MILESTONE_RANKS.filter(r => r <= 100 && r !== 1)];
+  const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
   const top = (chapter.rankings || [])
     .filter(p => wantedTop.includes(p.rank))
     .map(p => ({
