@@ -738,7 +738,10 @@ let activeWlTab = 'overall';
 let currentChapterPlayersRaw = []; // ★新增：目前所在章節分頁的完整玩家清單，隨分頁切換更新
 
 function buildChapterRanks(chapter, hoursSinceStart){
-  const wantedTop = MILESTONE_RANKS.filter(r => r <= 100);
+  // 章節玩家池比總榜小很多，剛開放時很可能連T10都還沒有人達到——額外加上第1名當作保底，
+  // 只要有任何一人玩過這個章節，至少有東西可以顯示/生成分享圖片，不會整個開天窗。
+  // 這裡刻意不動全域的 MILESTONE_RANKS，避免牽動到總榜跟其他地方的顯示與資料比對邏輯。
+  const wantedTop = [1, ...MILESTONE_RANKS.filter(r => r <= 100 && r !== 1)];
   const top = (chapter.rankings || [])
     .filter(p => wantedTop.includes(p.rank))
     .map(p => ({
@@ -782,7 +785,7 @@ async function setupWorldLink(data, wlBorderRankings){
     const key = ch.chapter;
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = ch.character;
-    chapterMap[key].rankings = ch.player_rankings || [];
+    chapterMap[key].rankings = ch.player_top_100_rankings || [];
     chapterMap[key].startAt = ch.start_at;
     chapterMap[key].closedAt = ch.closed_at;
     chapterMap[key].aggregateAt = ch.aggregate_at;
@@ -791,7 +794,7 @@ async function setupWorldLink(data, wlBorderRankings){
     const key = ch.chapter;
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = chapterMap[key].character || ch.character;
-    chapterMap[key].borderRankings = ch.player_borders || [];
+    chapterMap[key].borderRankings = ch.player_border_rankings || [];
     chapterMap[key].startAt = chapterMap[key].startAt || ch.start_at;
     chapterMap[key].closedAt = chapterMap[key].closedAt || ch.closed_at;
     chapterMap[key].aggregateAt = chapterMap[key].aggregateAt || ch.aggregate_at;
