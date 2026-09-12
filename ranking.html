@@ -378,11 +378,11 @@ async function loadRanking(){
         .slice()
         .sort((a,b) => a.chapter - b.chapter)
         .forEach(ch => {
-          wlChapterPlayers[String(ch.character)] = ch.player_rankings || [];
+          wlChapterPlayers[String(ch.character)] = ch.player_top_100_rankings || [];
           wlChapterOrder.push(ch.character);
         });
       wlBorderChapters.forEach(ch => {
-        wlChapterBorderPlayers[String(ch.character)] = ch.player_borders || [];
+        wlChapterBorderPlayers[String(ch.character)] = ch.player_border_rankings || [];
       });
       if(activeTab !== 'overall' && !wlChapterPlayers[activeTab]){
         activeTab = 'overall';
@@ -399,7 +399,7 @@ async function loadRanking(){
     renderList();
   }catch(err){
     console.warn('排行榜載入失敗', err);
-    document.getElementById('listWrap').innerHTML = `<div class="status-msg">載入失敗，請稍後點「重新整理」再試一次</div>`;
+    document.getElementById('listWrap').innerHTML = `<div class="status-msg">載入失敗：${err.message || '未知錯誤'}（請稍後點「重新整理」再試一次）</div>`;
   }
 }
 
