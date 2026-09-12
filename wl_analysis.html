@@ -246,12 +246,12 @@ async function loadLiveComparison(){
     const chapterMap = {};
     wlTop.forEach(ch => {
       chapterMap[ch.chapter] = chapterMap[ch.chapter] || { character: ch.character };
-      const p = (ch.player_rankings || []).find(x => x.rank === rank);
+      const p = (ch.player_top_100_rankings || []).find(x => x.rank === rank);
       if(p) chapterMap[ch.chapter].score = p.score;
     });
     wlBorder.forEach(ch => {
       chapterMap[ch.chapter] = chapterMap[ch.chapter] || { character: ch.character };
-      const p = (ch.player_borders || []).find(x => x.rank === rank);
+      const p = (ch.player_border_rankings || []).find(x => x.rank === rank);
       if(p) chapterMap[ch.chapter].score = p.score;
     });
 
