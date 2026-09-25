@@ -79,20 +79,6 @@
   .refresh-btn{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-panel-2);border:1px solid var(--line);color:var(--cyan);padding:7px 14px;border-radius:8px;cursor:pointer;margin-left:auto;}
   .refresh-btn:hover{border-color:var(--cyan);}
   .top-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  .lb-segment{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-  .lb-seg-btn{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg-panel-2);color:var(--text-dim);cursor:pointer;transition:.15s;}
-  .lb-seg-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-  .lb-seg-btn.active{background:var(--cyan);border-color:var(--cyan);color:#fff;}
-  .lb-row{border-bottom:1px solid var(--line);}
-  .lb-row:last-child{border-bottom:none;}
-  .lb-row-header{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;}
-  .lb-row-header:hover{background:rgba(79,70,229,0.05);}
-  .lb-rank{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--cyan);min-width:34px;}
-  .lb-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .lb-score{font-family:'JetBrains Mono',monospace;font-weight:700;}
-  .lb-arrow{color:var(--text-dim);font-size:11px;width:14px;text-align:center;flex-shrink:0;}
-  .lb-row.expanded .lb-row-header{background:rgba(79,70,229,0.06);}
-  .lb-row-detail{padding:0 14px 16px;}
 </style>
 </head>
 <body>
@@ -291,7 +277,7 @@ let charStats = null;
 
 function buildRankTable(ranks, remainHours){
   const body = document.getElementById('rankTableBody');
-  const isWorldLinkEvent = wlChapters.length > 0;
+  const isWorldLinkEvent = isWorldLinkActive;
   // ★新增：WL活動的總榜（不是章節），因為跨章節累積機制還沒驗證，關閉預測欄位
   const WL_OVERALL_PREDICT_THRESHOLD_HOURS = 72;
   const isWLOverall = isWorldLinkEvent && activeWlTab === 'overall' && remainHours > WL_OVERALL_PREDICT_THRESHOLD_HOURS;
@@ -419,19 +405,6 @@ function pickReferenceRanks(top100arr, hoursSinceStart){
 
 const API_URL = 'https://api.hisekai.org/tw/event/live/top100';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyJhVqGpCAQ5upZlflj6FopumGh14gjzHXBTO1nXATHUdGWD1JUNMPMQQ8_ND7CXZffQ/exec';
-
-// 本地快取（localStorage），live抓取全部失敗時的最後備援。
-// 跟 safeGetLastId/safeSetLastId 用同一套try/catch包裝慣例，避免 localStorage 被瀏覽器封鎖/爆滿時整頁報錯。
-const LIVE_CACHE_KEY = 'pjsk_live_cache';
-function safeGetCache(){
-  try{
-    const raw = localStorage.getItem(LIVE_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
-}
-function safeSetCache(obj){
-  try{ localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(obj)); }catch(e){ }
-}
 
 const FETCH_STRATEGIES = [
   { label: 'Apps Script 代理', url: `${APPS_SCRIPT_URL}?mode=proxy&target=top100` },
@@ -717,7 +690,7 @@ async function loadLive(){
     document.getElementById('dataNote').textContent =
       `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
 
-    const isWorldLink = wlChapters.length > 0;
+    const isWorldLink = isWorldLinkActive;
     document.getElementById('warmupWarning').style.display = (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
 
     if(activeWlTab === 'overall' && !isWorldLink) loadCharacterStats(data.id);
@@ -734,6 +707,9 @@ const CHARACTER_MAP = {
 
 let wlOverallRanks = [];
 let wlChapters = [];
+let isWorldLinkActive = false; // ★新增：是不是WL活動（跟「有沒有可切換的章節分頁」分開判斷，
+                                // 因為有些WL活動只有總榜、沒有分角色章節，但character:0那筆假章節
+                                // 資料會被濾掉不顯示分頁，這時仍要維持「這是WL活動」的判定）
 let activeWlTab = 'overall';
 let currentChapterPlayersRaw = []; // ★新增：目前所在章節分頁的完整玩家清單，隨分頁切換更新
 
@@ -771,14 +747,20 @@ async function setupWorldLink(data, wlBorderRankings){
     banner.classList.remove('active');
     tabsWrap.classList.remove('active');
     wlChapters = [];
+    isWorldLinkActive = false;
     return;
   }
+
+  // 這是WL活動（不管等一下章節分頁篩選完還剩不剩東西，這個判定都維持成立）
+  isWorldLinkActive = true;
 
   banner.classList.add('active');
   tabsWrap.classList.add('active');
 
   const chapterMap = {};
   wlTopChapters.forEach(ch => {
+    // character:0 是「不分角色的統合章節」，資料其實跟總榜重複，不當成獨立分頁顯示
+    if(ch.character === 0){ return; }
     const key = ch.chapter;
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = ch.character;
@@ -788,6 +770,7 @@ async function setupWorldLink(data, wlBorderRankings){
     chapterMap[key].aggregateAt = ch.aggregate_at;
   });
   wlBorderChapters.forEach(ch => {
+    if(ch.character === 0){ return; }
     const key = ch.chapter;
     if(!chapterMap[key]) chapterMap[key] = { chapter: ch.chapter, character: ch.character, rankings: [], borderRankings: [] };
     chapterMap[key].character = chapterMap[key].character || ch.character;
