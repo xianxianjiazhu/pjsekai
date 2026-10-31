@@ -572,6 +572,17 @@ async function tryBorderLogFallback(){
   }
 }
 
+const LIVE_CACHE_KEY = 'pjsk_live_cache';
+function safeGetCache(){
+  try{
+    const raw = localStorage.getItem(LIVE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function safeSetCache(obj){
+  try{ localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(obj)); }catch(e){ }
+}
+
 function showLocalCacheFallback(){
   const cache = safeGetCache();
   if(!cache || !cache.ranks || !cache.ranks.length) return false;
