@@ -112,7 +112,7 @@
     <span>預測計算時間：<b id="calcAgo">—</b></span>
   </div>
   <p id="warmupWarning" class="result-note" style="display:none;color:var(--amber);background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-radius:10px;padding:10px 14px;">
-    ⚠ 活動開始還不到 24 小時，時速還在累積、不夠穩定，「結算前預估增加」已經會依資料累積比例自動打折（看各名次旁的「信心度」標示），盡量避免預測暴衝，但終究是還沒滿24小時的粗略推估，這段時間的數字請保守看待。
+    ⚠ 活動開始還不到 72 小時，時速還在累積、不夠穩定，「結算前預估增加」已經會依資料累積比例自動混入同角色歷史中位數（看各名次旁的「信心度」標示），盡量避免預測暴衝，但終究是還沒滿72小時的粗略推估，這段時間的數字請保守看待。
   </p>
   <p id="charStatsNote" class="result-note" style="display:none;"></p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -484,16 +484,21 @@ function overrideWithRecentSpeeds(ranks, speeds){
     const measured = speeds[r.rank];
     if(measured === undefined || measured === null) return r;
     if(r.isAverage){
-      return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
+      // 信心度要看「活動已經進行多久」（沿用 r.confidenceHours = 活動開始至今的小時數），
+      // 不能用 measured.windowHours：近期時速的取樣窗口最多只有 24 小時，會讓信心度永遠卡在 1/3
+      return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: r.confidenceHours };
     }
     return r;
   });
 }
 
 async function applyRecentSpeeds(ranks, eventId){
-  if(!cachedRecentSpeeds || Number(cachedRecentSpeeds.eventId) !== Number(eventId)){
+  // 之前失敗（speeds 是 null）也會被記起來，整個頁面期間都不再重試，等於逾時一次就一直顯示「均速」。
+  // 現在只有成功拿到資料才算快取，失敗的話下一輪重新整理會再試一次
+  if(!cachedRecentSpeeds || !cachedRecentSpeeds.speeds || Number(cachedRecentSpeeds.eventId) !== Number(eventId)){
     const speeds = await fetchRecentSpeeds(eventId);
-    cachedRecentSpeeds = { eventId, speeds };
+    cachedRecentSpeeds = speeds ? { eventId, speeds } : null;
+    if(!speeds) return ranks;
   }
   return overrideWithRecentSpeeds(ranks, cachedRecentSpeeds.speeds);
 }
@@ -519,7 +524,7 @@ function overrideChapterWithRecentSpeeds(ranksArray, chapterMeta, speeds){
     const key = `${chapterMeta.chapter}_${chapterMeta.character}_${r.rank}`;
     const measured = speeds[key];
     if(measured === undefined || measured === null) return r;
-    return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours };
+    return { ...r, speed: measured.speed, isAverage: false, isRecentLog: true, recentWindowHours: measured.windowHours, confidenceHours: measured.windowHours, confidenceFullHours: 24 };
   });
 }
 
@@ -702,7 +707,7 @@ async function loadLive(){
       `即時資料透過「${result.via}」取得${foundBorderRanks.length ? `，已包含 T${foundBorderRanks.map(r=>r.rank).join('／T')} 的 border 資料` : '（border 分段名次目前皆無法取得）'}${missingLabel}。點「重新整理」可再抓一次最新排名。`;
 
     const isWorldLink = isWorldLinkActive;
-    document.getElementById('warmupWarning').style.display = (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < 24) ? 'block' : 'none';
+    document.getElementById('warmupWarning').style.display = (!isWorldLink && hoursSinceStart !== null && hoursSinceStart < CONFIDENCE_FULL_HOURS) ? 'block' : 'none';
 
     if(activeWlTab === 'overall' && !isWorldLink) loadCharacterStats(data.id);
   }
@@ -734,6 +739,7 @@ function buildChapterRanks(chapter, hoursSinceStart){
       speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
       isAverage: !!hoursSinceStart,
       confidenceHours: hoursSinceStart || undefined,
+      confidenceFullHours: 24,
     }));
   const wantedBorder = MILESTONE_RANKS.filter(r => r > 100);
   const border = (chapter.borderRankings || [])
@@ -743,6 +749,7 @@ function buildChapterRanks(chapter, hoursSinceStart){
       speed: hoursSinceStart ? p.score / hoursSinceStart : 0,
       isAverage: !!hoursSinceStart,
       confidenceHours: hoursSinceStart || undefined,
+      confidenceFullHours: 24,
     }));
   return [...top, ...border].sort((a,b) => a.rank - b.rank);
 }
@@ -912,8 +919,12 @@ document.getElementById('colToggleBtn').addEventListener('click', () => {
   setCompactTable(!isCompact);
 });
 
+// 活動開始後要累積多少小時，才完全採用即時線性外推（不再混入同角色歷史中位數）。
+// 一般活動 72 小時；WL 章節沒有歷史中位數可混，沿用 24 小時（只影響「信心度」標示）
+const CONFIDENCE_FULL_HOURS = 72;
 function predictWithConfidence(r, remainHours, histAvgNum){
-  const confidence = r.confidenceHours ? Math.min(r.confidenceHours, 24) / 24 : 1;
+  const fullHours = r.confidenceFullHours || CONFIDENCE_FULL_HOURS;
+  const confidence = r.confidenceHours ? Math.min(r.confidenceHours, fullHours) / fullHours : 1;
   const rawGain = Math.max(0, r.speed * remainHours);
   const liveExtrapolated = r.score + rawGain;
   let predicted = liveExtrapolated;
